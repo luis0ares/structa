@@ -1,0 +1,159 @@
+name: Build and Release Windows Binary
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+env:
+  GO_VERSION: '1.25.0'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for git tag detection
+
+      # Determine the next version
+      - name: Determine next version
+        id: version
+        shell: pwsh
+        run: |
+          # Get the latest tag, default to v0.1.0 if none exists
+          $latestTag = git describe --tags --abbrev=0 2>$null
+          if ($null -eq $latestTag) {
+            $latestTag = "v0.1.0"
+          }
+
+          # Remove 'v' prefix for version parsing
+          $currentVersion = $latestTag -replace '^v', ''
+          $versionParts = $currentVersion -split '\.'
+
+          $major = [int]$versionParts[0]
+          $minor = [int]$versionParts[1]
+          $patch = [int]$versionParts[2]
+
+          # Bump version based on input
+          switch ('${{ github.event.inputs.version_bump }}') {
+            'major' {
+              $major++
+              $minor = 0
+              $patch = 0
+            }
+            'minor' {
+              $minor++
+              $patch = 0
+            }
+            'patch' {
+              $patch++
+            }
+          }
+
+          $nextVersion = "v$major.$minor.$patch"
+          echo "version=$nextVersion" >> $env:GITHUB_OUTPUT
+          Write-Host "Current: $latestTag -> Next: $nextVersion"
+
+      # Setup Go environment
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # Setup Node.js for frontend build (wails build invokes npm install/build via wails.json)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Install Wails CLI
+      - name: Install Wails CLI
+        shell: pwsh
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      # Build the Wails application for Windows
+      - name: Build Wails application for Windows
+        shell: pwsh
+        run: |
+          # Ensure Wails CLI is in PATH
+          $env:Path += ";$(go env GOPATH)\bin"
+
+          # Build for Windows (this generates the .exe in build/bin/)
+          wails build -platform windows/amd64 -o structa.exe
+
+      # Verify build output exists
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          if (Test-Path "build\bin\structa.exe") {
+            Write-Host "✓ Windows executable found"
+            Get-Item "build\bin\structa.exe" | ForEach-Object {
+              Write-Host "  Size: $([Math]::Round($_.Length / 1MB, 2)) MB"
+            }
+          } else {
+            Write-Error "Windows executable not found at build/bin/structa.exe"
+            exit 1
+          }
+
+      # Create source code archive
+      - name: Create source code archive
+        shell: pwsh
+        run: |
+          # Create temporary directory for archive contents
+          $archiveDir = "structa-source-${{ steps.version.outputs.version }}"
+          New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+
+          # Copy project files (exclude .git, node_modules, build artifacts)
+          $excludeDirs = @('.git', 'node_modules', 'build', '.next', 'dist')
+
+          Get-ChildItem -Force | Where-Object { $_.Name -notin $excludeDirs } | ForEach-Object {
+            if ($_.PSIsContainer) {
+              Copy-Item -Path $_.FullName -Destination "$archiveDir\$($_.Name)" -Recurse -Force
+            } else {
+              Copy-Item -Path $_.FullName -Destination "$archiveDir\$($_.Name)" -Force
+            }
+          }
+
+          # Create ZIP archive
+          Compress-Archive -Path $archiveDir -DestinationPath "structa-source-${{ steps.version.outputs.version }}.zip" -Force
+          Write-Host "✓ Source archive created"
+          Get-Item "structa-source-${{ steps.version.outputs.version }}.zip" | ForEach-Object {
+            Write-Host "  Size: $([Math]::Round($_.Length / 1MB, 2)) MB"
+          }
+
+          # Cleanup temp directory
+          Remove-Item -Path $archiveDir -Recurse -Force
+
+      # Rename the executable so the released asset carries the version
+      - name: Rename Windows executable
+        shell: pwsh
+        run: |
+          Copy-Item "build\bin\structa.exe" "build\bin\structa-${{ steps.version.outputs.version }}.exe"
+
+      # Create the GitHub Release and upload both assets. The tag is created
+      # automatically at the current SHA; the action reads GITHUB_TOKEN from
+      # the runner environment, so no explicit env: block is required.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            build/bin/structa-${{ steps.version.outputs.version }}.exe
+            structa-source-${{ steps.version.outputs.version }}.zip
