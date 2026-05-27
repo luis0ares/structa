@@ -17,7 +17,7 @@ import (
 	"structa/internal/paths"
 )
 
-// scanResult holds everything extracted from a single mod folder.
+// scanResult holds everything extracted from a single item folder.
 type scanResult struct {
 	Title        string
 	Favorite     bool
@@ -31,7 +31,7 @@ type scanResult struct {
 	ContentHash  string
 }
 
-// processFolder reads disk state for one mod folder, regenerates thumbnails,
+// processFolder reads disk state for one item folder, regenerates thumbnails,
 // and writes/refreshes the corresponding rows in the database.
 func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folderPath string) error {
 	info, err := os.Stat(folderPath)
@@ -65,7 +65,7 @@ func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folder
 		lower := strings.ToLower(name)
 		full := filepath.Join(folderPath, name)
 		switch {
-		case lower == "mod.favorite":
+		case lower == ".favorite":
 			res.Favorite = true
 		case lower == "link.url":
 			if link, err := readURLFile(full); err == nil && link != "" {
@@ -91,7 +91,7 @@ func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folder
 		// Content list: subfolder and archive filenames (skip preview images and marker files).
 		if e.IsDir() {
 			res.Content = append(res.Content, name)
-		} else if !strings.HasPrefix(lower, "preview") && lower != "mod.favorite" && lower != "link.url" && lower != "tags.txt" && lower != "description.txt" {
+		} else if !strings.HasPrefix(lower, "preview") && lower != ".favorite" && lower != "link.url" && lower != "tags.txt" && lower != "description.txt" {
 			res.Content = append(res.Content, name)
 		}
 	}
@@ -220,7 +220,7 @@ func previewPriority(lower string) int {
 }
 
 // computeContentHash returns a stable hash over (name, isDir, size, mtime) of a folder's direct children.
-// It is used to decide whether to re-process a mod folder. Reading sizes/mtimes from DirEntry avoids extra stats.
+// It is used to decide whether to re-process an item folder. Reading sizes/mtimes from DirEntry avoids extra stats.
 func computeContentHash(entries []os.DirEntry) string {
 	type rec struct {
 		name  string

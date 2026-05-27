@@ -5,43 +5,43 @@ import { FolderIcon, GlobeIcon, StarIcon } from './icons';
 export type ViewMode = 'grid' | 'list';
 
 type Props = {
-  mod: main.ModCardDTO;
+  item: main.ItemCardDTO;
   viewMode: ViewMode;
   selectedTagKeys: Set<string>;
   onFavoriteChange: (id: number, favorite: boolean) => void;
-  onOpenPreview: (mod: main.ModCardDTO) => void;
+  onOpenPreview: (item: main.ItemCardDTO) => void;
   onTagClick: (tag: string) => void;
 };
 
-export function Card({ mod, viewMode, selectedTagKeys, onFavoriteChange, onOpenPreview, onTagClick }: Props) {
+export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpenPreview, onTagClick }: Props) {
   const handleStar = (e: React.MouseEvent) => {
     e.stopPropagation();
-    ToggleFavorite(mod.id).then((fav) => onFavoriteChange(mod.id, fav));
+    ToggleFavorite(item.id).then((fav) => onFavoriteChange(item.id, fav));
   };
   const handleGlobe = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (mod.sourceLink) OpenURL(mod.sourceLink);
+    if (item.sourceLink) OpenURL(item.sourceLink);
   };
   const handleFolder = (e: React.MouseEvent) => {
     e.stopPropagation();
-    OpenFolder(mod.id);
+    OpenFolder(item.id);
   };
-  const handleImg = () => onOpenPreview(mod);
+  const handleImg = () => onOpenPreview(item);
 
   return (
-    <div className={`card ${viewMode === 'list' ? 'card-list' : ''}`} id={`card-${mod.id}`}>
+    <div className={`card ${viewMode === 'list' ? 'card-list' : ''}`} id={`card-${item.id}`}>
       <div className="card-img" onClick={handleImg}>
-        {mod.thumbUrl ? (
-          <img src={mod.thumbUrl} alt={mod.title} loading="lazy" />
+        {item.thumbUrl ? (
+          <img src={item.thumbUrl} alt={item.title} loading="lazy" />
         ) : (
           <span className="ph">No preview</span>
         )}
       </div>
       <div className="card-body">
-        <div className="card-title">{mod.title}</div>
-        {mod.tags && mod.tags.length > 0 && (
+        <div className="card-title">{item.title}</div>
+        {item.tags && item.tags.length > 0 && (
           <div className="card-tags">
-            {mod.tags.map((t) => {
+            {item.tags.map((t) => {
               const active = selectedTagKeys.has(t.toLowerCase());
               return (
                 <button
@@ -57,25 +57,25 @@ export function Card({ mod, viewMode, selectedTagKeys, onFavoriteChange, onOpenP
             })}
           </div>
         )}
-        {mod.description && (
-          <div className="card-content" title={mod.description}>{mod.description}</div>
+        {item.description && (
+          <div className="card-content" title={item.description}>{item.description}</div>
         )}
       </div>
       <div className="card-actions">
         <button
-          className={`icon-btn star ${mod.favorite ? 'on' : ''}`}
+          className={`icon-btn star ${item.favorite ? 'on' : ''}`}
           onClick={handleStar}
-          aria-label={mod.favorite ? 'Unfavorite' : 'Favorite'}
-          title={mod.favorite ? 'Unfavorite' : 'Favorite'}
+          aria-label={item.favorite ? 'Unfavorite' : 'Favorite'}
+          title={item.favorite ? 'Unfavorite' : 'Favorite'}
         >
-          <StarIcon filled={mod.favorite} />
+          <StarIcon filled={item.favorite} />
         </button>
-        {mod.sourceLink && (
+        {item.sourceLink && (
           <button
             className="icon-btn"
             onClick={handleGlobe}
             aria-label="Open source link"
-            title={mod.sourceLink}
+            title={item.sourceLink}
           >
             <GlobeIcon />
           </button>

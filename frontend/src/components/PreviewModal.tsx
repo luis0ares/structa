@@ -3,18 +3,18 @@ import { GetPreviews } from '../../wailsjs/go/main/App';
 import { ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './icons';
 
 type Props = {
-  modId: number | null;
+  itemId: number | null;
   fallbackUrl?: string;
   onClose: () => void;
 };
 
-export function PreviewModal({ modId, fallbackUrl, onClose }: Props) {
+export function PreviewModal({ itemId, fallbackUrl, onClose }: Props) {
   const [previews, setPreviews] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
-    if (modId == null) return;
-    GetPreviews(modId)
+    if (itemId == null) return;
+    GetPreviews(itemId)
       .then((urls) => {
         const list = urls && urls.length ? urls : fallbackUrl ? [fallbackUrl] : [];
         setPreviews(list);
@@ -24,10 +24,10 @@ export function PreviewModal({ modId, fallbackUrl, onClose }: Props) {
         setPreviews(fallbackUrl ? [fallbackUrl] : []);
         setIdx(0);
       });
-  }, [modId, fallbackUrl]);
+  }, [itemId, fallbackUrl]);
 
   useEffect(() => {
-    if (modId == null) return;
+    if (itemId == null) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') step(1);
@@ -36,14 +36,14 @@ export function PreviewModal({ modId, fallbackUrl, onClose }: Props) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previews, modId]);
+  }, [previews, itemId]);
 
   const step = (d: number) => {
     if (!previews.length) return;
     setIdx((i) => (i + d + previews.length) % previews.length);
   };
 
-  if (modId == null) return null;
+  if (itemId == null) return null;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

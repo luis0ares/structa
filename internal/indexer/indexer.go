@@ -175,12 +175,12 @@ func (ix *Indexer) dirtyLoop(ctx context.Context) {
 	}
 }
 
-// Reconcile walks every configured category, enqueues changed mod folders,
+// Reconcile walks every configured category, enqueues changed item folders,
 // and prunes DB rows whose folder_path no longer exists on disk.
 func (ix *Indexer) Reconcile() error { return ix.reconcile(false) }
 
 // ForceReconcile reprocesses every folder regardless of content-hash, useful
-// after changing per-mod file conventions (e.g. tags.txt) or recovering from
+// after changing per-item file conventions (e.g. tags.txt) or recovering from
 // a corrupted index.
 func (ix *Indexer) ForceReconcile() error { return ix.reconcile(true) }
 
@@ -264,7 +264,7 @@ func (ix *Indexer) reconcile(force bool) error {
 	return nil
 }
 
-// RescanFolder is called by the watcher when a mod folder changes.
+// RescanFolder is called by the watcher when an item folder changes.
 // folderPath must be a direct child of a configured category path.
 func (ix *Indexer) RescanFolder(folderPath string) {
 	folderPath = filepath.Clean(folderPath)

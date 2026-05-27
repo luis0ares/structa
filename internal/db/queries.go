@@ -6,14 +6,14 @@ import (
 )
 
 type FolderRow struct {
-	ID            int64
-	Tab           string
-	Category      string
-	CategoryPath  string
-	FolderName    string
-	FolderPath    string
-	MTime         float64
-	ContentHash   string
+	ID           int64
+	Tab          string
+	Category     string
+	CategoryPath string
+	FolderName   string
+	FolderPath   string
+	MTime        float64
+	ContentHash  string
 }
 
 type DetailsRow struct {

@@ -13,10 +13,10 @@ type Props = {
   onSearchChange: (s: string) => void;
   filter: FilterState;
   onFilterChange: (f: FilterState) => void;
-  onJumpToMod: (id: number) => void;
+  onJumpToItem: (id: number) => void;
 };
 
-export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, onJumpToMod }: Props) {
+export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, onJumpToItem }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [filterOpen, setFilterOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -26,7 +26,7 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
     const counts = new Map<string, { label: string; n: number }>();
     if (tab) {
       for (const c of tab.categories) {
-        for (const m of c.mods) {
+        for (const m of c.items) {
           for (const raw of m.tags || []) {
             const key = raw.toLowerCase();
             const existing = counts.get(key);
@@ -44,13 +44,13 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
   const selectedSet = useMemo(() => new Set(filter.selectedTags), [filter.selectedTags]);
   const hasFilter = filter.favoritesOnly || filter.selectedTags.length > 0;
 
-  const passes = (m: main.ModCardDTO) => {
+  const passes = (m: main.ItemCardDTO) => {
     if (filter.favoritesOnly && !m.favorite) return false;
     if (selectedSet.size > 0) {
-      const modTags = (m.tags || []).map((t) => t.toLowerCase());
+      const itemTags = (m.tags || []).map((t) => t.toLowerCase());
       let ok = false;
       for (const t of selectedSet) {
-        if (modTags.includes(t)) { ok = true; break; }
+        if (itemTags.includes(t)) { ok = true; break; }
       }
       if (!ok) return false;
     }
@@ -63,7 +63,7 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
     return tab.categories
       .map((c) => {
         const catHit = c.name.toLowerCase().includes(q);
-        const mods = c.mods.filter((m) => {
+        const items = c.items.filter((m) => {
           if (!passes(m)) return false;
           if (!q) return true;
           return (
@@ -72,9 +72,9 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
             (m.tags || []).some((t) => t.toLowerCase().includes(q))
           );
         });
-        return { ...c, mods };
+        return { ...c, items };
       })
-      .filter((c) => (q || hasFilter ? c.mods.length > 0 : true));
+      .filter((c) => (q || hasFilter ? c.items.length > 0 : true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, search, filter.favoritesOnly, filter.selectedTags]);
 
@@ -183,17 +183,17 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
                 <ChevronIcon className="chev" size={14} />
                 <span>{c.name}</span>
                 <span style={{ marginLeft: 'auto', color: 'var(--fg-muted)', fontWeight: 400 }}>
-                  {c.mods.length}
+                  {c.items.length}
                 </span>
               </div>
               {!isCollapsed && (
                 <div className="cat-children">
-                  {c.mods.map((m) => (
+                  {c.items.map((m) => (
                     <div
                       key={m.id}
                       className={`cat-item ${m.favorite ? 'favorite' : ''}`}
                       title={m.title}
-                      onClick={() => onJumpToMod(m.id)}
+                      onClick={() => onJumpToItem(m.id)}
                     >
                       {m.title}
                     </div>

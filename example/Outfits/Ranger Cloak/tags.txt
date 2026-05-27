@@ -1,0 +1,4 @@
+cloak
+ranger
+outdoor
+leather

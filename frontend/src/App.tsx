@@ -50,7 +50,7 @@ function App() {
           categories: t.categories.map((c) =>
             main.CategoryDTO.createFrom({
               name: c.name,
-              mods: c.mods.map((m) => (m.id === id ? main.ModCardDTO.createFrom({ ...m, favorite }) : m)),
+              items: c.items.map((m) => (m.id === id ? main.ItemCardDTO.createFrom({ ...m, favorite }) : m)),
             }),
           ),
         }),

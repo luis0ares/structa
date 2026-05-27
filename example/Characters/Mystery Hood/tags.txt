@@ -1,0 +1,4 @@
+portrait
+dark
+hooded
+mage

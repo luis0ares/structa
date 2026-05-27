@@ -9,7 +9,7 @@ import (
 )
 
 type Tab struct {
-	Name       string   `json:"tab_name"`
+	Name       string     `json:"tab_name"`
 	Categories []Category `json:"categories"`
 }
 

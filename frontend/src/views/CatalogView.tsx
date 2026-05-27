@@ -13,7 +13,7 @@ type Props = {
 export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterState>({ favoritesOnly: false, selectedTags: [] });
-  const [preview, setPreview] = useState<main.ModCardDTO | null>(null);
+  const [preview, setPreview] = useState<main.ItemCardDTO | null>(null);
 
   const tagSet = useMemo(() => new Set(filter.selectedTags), [filter.selectedTags]);
   const hasFilter = filter.favoritesOnly || tagSet.size > 0;
@@ -46,13 +46,13 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
 
   const q = search.trim().toLowerCase();
 
-  const passes = (m: main.ModCardDTO): boolean => {
+  const passes = (m: main.ItemCardDTO): boolean => {
     if (filter.favoritesOnly && !m.favorite) return false;
     if (tagSet.size > 0) {
-      const modTags = (m.tags || []).map((t) => t.toLowerCase());
+      const itemTags = (m.tags || []).map((t) => t.toLowerCase());
       let ok = false;
       for (const t of tagSet) {
-        if (modTags.includes(t)) { ok = true; break; }
+        if (itemTags.includes(t)) { ok = true; break; }
       }
       if (!ok) return false;
     }
@@ -61,7 +61,7 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
 
   const visible = tab.categories.map((c) => {
     const catHit = c.name.toLowerCase().includes(q);
-    const mods = c.mods.filter((m) => {
+    const items = c.items.filter((m) => {
       if (!passes(m)) return false;
       if (!q) return true;
       return (
@@ -70,9 +70,9 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
         (m.tags || []).some((t) => t.toLowerCase().includes(q))
       );
     });
-    return { ...c, mods };
+    return { ...c, items };
   });
-  const hasAny = visible.some((c) => c.mods.length > 0);
+  const hasAny = visible.some((c) => c.items.length > 0);
 
   return (
     <>
@@ -82,30 +82,30 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
         onSearchChange={setSearch}
         filter={filter}
         onFilterChange={setFilter}
-        onJumpToMod={jumpTo}
+        onJumpToItem={jumpTo}
       />
       <main className="content">
         {!hasAny ? (
           <div className="empty">
-            {q || hasFilter ? <p>No mods match the current filters</p> : (
+            {q || hasFilter ? <p>No items match the current filters</p> : (
               <>
-                <p>No mods indexed in this tab yet.</p>
+                <p>No items indexed in this tab yet.</p>
                 <p style={{ fontSize: 12 }}>
-                  Add folders in the settings, or drop mods into a watched folder — they'll appear automatically.
+                  Add folders in the settings, or drop items into a watched folder — they'll appear automatically.
                 </p>
               </>
             )}
           </div>
         ) : (
           visible.map((c) =>
-            c.mods.length === 0 ? null : (
+            c.items.length === 0 ? null : (
               <section key={c.name} className="cat-section">
                 <h3 className="cat-section-h">{c.name}</h3>
                 <div className={`grid ${viewMode === 'list' ? 'list' : ''}`}>
-                  {c.mods.map((m) => (
+                  {c.items.map((m) => (
                     <Card
                       key={m.id}
-                      mod={m}
+                      item={m}
                       viewMode={viewMode}
                       selectedTagKeys={tagSet}
                       onFavoriteChange={onFavoriteChange}
@@ -121,7 +121,7 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
       </main>
       {preview && (
         <PreviewModal
-          modId={preview.id}
+          itemId={preview.id}
           fallbackUrl={preview.thumbUrl}
           onClose={() => setPreview(null)}
         />

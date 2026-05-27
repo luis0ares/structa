@@ -94,7 +94,7 @@ func (a *App) OnCatalogUpdated() {
 
 // ----- DTOs returned to the frontend -----
 
-type ModCardDTO struct {
+type ItemCardDTO struct {
 	ID          int64    `json:"id"`
 	Title       string   `json:"title"`
 	FolderPath  string   `json:"folderPath"`
@@ -107,8 +107,8 @@ type ModCardDTO struct {
 }
 
 type CategoryDTO struct {
-	Name string       `json:"name"`
-	Mods []ModCardDTO `json:"mods"`
+	Name  string        `json:"name"`
+	Items []ItemCardDTO `json:"items"`
 }
 
 type TabDTO struct {
@@ -118,7 +118,7 @@ type TabDTO struct {
 
 // ----- Bound methods -----
 
-// GetCatalog returns the full catalog grouped by tab → category → mods.
+// GetCatalog returns the full catalog grouped by tab → category → items.
 func (a *App) GetCatalog() ([]TabDTO, error) {
 	if a.db == nil {
 		return []TabDTO{}, nil
@@ -139,7 +139,7 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 		for _, c := range t.Categories {
 			catKey := t.Name + "\x00" + c.Name
 			catIdx[catKey] = len(td.Categories)
-			td.Categories = append(td.Categories, CategoryDTO{Name: c.Name, Mods: []ModCardDTO{}})
+			td.Categories = append(td.Categories, CategoryDTO{Name: c.Name, Items: []ItemCardDTO{}})
 		}
 		out = append(out, td)
 	}
@@ -159,7 +159,7 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 			return ti, ci
 		}
 		catIdx[key] = len(out[ti].Categories)
-		out[ti].Categories = append(out[ti].Categories, CategoryDTO{Name: catName, Mods: []ModCardDTO{}})
+		out[ti].Categories = append(out[ti].Categories, CategoryDTO{Name: catName, Items: []ItemCardDTO{}})
 		return ti, catIdx[key]
 	}
 
@@ -168,7 +168,7 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 		var content, tags []string
 		_ = json.Unmarshal([]byte(r.ContentJSON), &content)
 		_ = json.Unmarshal([]byte(r.TagsJSON), &tags)
-		card := ModCardDTO{
+		card := ItemCardDTO{
 			ID:          r.ID,
 			Title:       r.Title,
 			FolderPath:  r.FolderPath,
@@ -183,12 +183,12 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 		if r.SourceLink.Valid {
 			card.SourceLink = r.SourceLink.String
 		}
-		out[ti].Categories[ci].Mods = append(out[ti].Categories[ci].Mods, card)
+		out[ti].Categories[ci].Items = append(out[ti].Categories[ci].Items, card)
 	}
 	return out, nil
 }
 
-// GetPreviews returns the URLs of all preview images for a mod.
+// GetPreviews returns the URLs of all preview images for an item.
 func (a *App) GetPreviews(id int64) ([]string, error) {
 	if a.db == nil {
 		return []string{}, nil
@@ -207,7 +207,7 @@ func (a *App) GetPreviews(id int64) ([]string, error) {
 }
 
 // ToggleFavorite flips the favorite flag in the DB and writes/removes the
-// `mod.favorite` marker file on disk so it survives a fresh index.
+// `.favorite` marker file on disk so it survives a fresh index.
 func (a *App) ToggleFavorite(id int64) (bool, error) {
 	if a.db == nil {
 		return false, errors.New("db not ready")
@@ -220,7 +220,7 @@ func (a *App) ToggleFavorite(id int64) (bool, error) {
 	if err := appdb.SetFavorite(a.db, id, newFav); err != nil {
 		return false, err
 	}
-	marker := filepath.Join(card.FolderPath, "mod.favorite")
+	marker := filepath.Join(card.FolderPath, ".favorite")
 	if newFav {
 		_ = os.WriteFile(marker, []byte{}, 0o644)
 	} else {
@@ -229,7 +229,7 @@ func (a *App) ToggleFavorite(id int64) (bool, error) {
 	return newFav, nil
 }
 
-// OpenFolder opens the mod's folder in the system file manager.
+// OpenFolder opens the item's folder in the system file manager.
 func (a *App) OpenFolder(id int64) error {
 	if a.db == nil {
 		return errors.New("db not ready")
@@ -303,7 +303,7 @@ func (a *App) RescanAll() error {
 }
 
 // ForceReindex reprocesses every folder regardless of content-hash. Use when
-// per-mod file conventions have changed (e.g. renaming tags.txt) or when the
+// per-item file conventions have changed (e.g. renaming tags.txt) or when the
 // index appears stale.
 func (a *App) ForceReindex() error {
 	if a.indexer == nil {

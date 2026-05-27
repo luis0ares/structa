@@ -22,7 +22,7 @@ Each indexed item is a direct subdirectory of a configured category folder. The 
 |-------------------|--------|
 | `preview1.*`, `preview.a.*`, `preview.*` (priority order), then any `preview*.png/jpg/webp` | First match becomes the card cover; all are shown in the preview modal |
 | `link.url`        | Standard Windows shortcut. The `URL=` line is parsed and becomes the globe-icon link |
-| `mod.favorite`    | Marker file (any content). When present, the item is marked as favorite |
+| `.favorite`    | Marker file (any content). When present, the item is marked as favorite |
 | `tags.txt`        | One tag per line. Tags appear as chips on the card; clicking a chip adds the tag to the active filter; the sidebar search also matches tags case-insensitively |
 | `description.txt` | Free-form text shown on the card under the tags. Newlines are preserved; grid view truncates to 3 lines, list view to 10 |
 
@@ -116,7 +116,7 @@ structa/
 1. On startup, `paths.Resolve()` ensures `%APPDATA%/structa/` and the thumb cache exist.
 2. The DB is opened (pure-Go SQLite — `modernc.org/sqlite`); `ensureColumn` migrates additive schema changes.
 3. The indexer loads `config.json`, then for every `(tab → category → folder)` triple it lists direct subdirectories and compares each against the `folders` table by `(mtime, content_hash)`. Only changed item folders are enqueued onto a worker pool.
-4. Per item folder, `process.go` resizes the cover (300 px) and previews (600 px) into the thumbs dir, parses `link.url`, `mod.favorite`, `tags.txt`, and `description.txt`, then upserts both rows.
+4. Per item folder, `process.go` resizes the cover (300 px) and previews (600 px) into the thumbs dir, parses `link.url`, `.favorite`, `tags.txt`, and `description.txt`, then upserts both rows.
 5. fsnotify watches every configured folder. Events on a child path are mapped back to the owning item folder and dispatched to a debounced (`500 ms`) `RescanFolder` call.
 6. The Go side emits `catalog:updated` events that the React frontend listens to (`EventsOn`), so the grid refreshes without a reload.
 

@@ -102,7 +102,7 @@ export namespace indexer {
 
 export namespace main {
 	
-	export class ModCardDTO {
+	export class ItemCardDTO {
 	    id: number;
 	    title: string;
 	    folderPath: string;
@@ -114,7 +114,7 @@ export namespace main {
 	    tags: string[];
 	
 	    static createFrom(source: any = {}) {
-	        return new ModCardDTO(source);
+	        return new ItemCardDTO(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -132,7 +132,7 @@ export namespace main {
 	}
 	export class CategoryDTO {
 	    name: string;
-	    mods: ModCardDTO[];
+	    items: ItemCardDTO[];
 	
 	    static createFrom(source: any = {}) {
 	        return new CategoryDTO(source);
@@ -141,7 +141,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
-	        this.mods = this.convertValues(source["mods"], ModCardDTO);
+	        this.items = this.convertValues(source["items"], ItemCardDTO);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
