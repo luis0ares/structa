@@ -105,6 +105,7 @@ export namespace main {
 	export class ItemCardDTO {
 	    id: number;
 	    title: string;
+	    folderName: string;
 	    folderPath: string;
 	    thumbUrl: string;
 	    favorite: boolean;
@@ -121,6 +122,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.title = source["title"];
+	        this.folderName = source["folderName"];
 	        this.folderPath = source["folderPath"];
 	        this.thumbUrl = source["thumbUrl"];
 	        this.favorite = source["favorite"];

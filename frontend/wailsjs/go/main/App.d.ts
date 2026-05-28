@@ -29,3 +29,5 @@ export function RescanAll():Promise<void>;
 export function SaveConfig(arg1:config.Config):Promise<void>;
 
 export function ToggleFavorite(arg1:number):Promise<boolean>;
+
+export function UpdateItemMeta(arg1:number,arg2:string,arg3:Array<string>,arg4:string,arg5:string,arg6:boolean):Promise<void>;

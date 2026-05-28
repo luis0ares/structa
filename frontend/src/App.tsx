@@ -79,28 +79,6 @@ function App() {
           )}
         </div>
         <div className="topbar-right">
-          {activeTab !== SETTINGS_TAB && (
-            <div className="view-toggle" role="group" aria-label="View mode">
-              <button
-                className={viewMode === 'grid' ? 'active' : ''}
-                onClick={() => setViewMode('grid')}
-                title="Grid view"
-                aria-label="Grid view"
-                aria-pressed={viewMode === 'grid'}
-              >
-                <GridIcon size={14} />
-              </button>
-              <button
-                className={viewMode === 'list' ? 'active' : ''}
-                onClick={() => setViewMode('list')}
-                title="List view"
-                aria-label="List view"
-                aria-pressed={viewMode === 'list'}
-              >
-                <ListIcon size={14} />
-              </button>
-            </div>
-          )}
           <IndexStatusPill status={status} />
           <button
             className="topbar-tab-btn"
@@ -111,6 +89,31 @@ function App() {
           >
             <RefreshIcon />
           </button>
+          {activeTab !== SETTINGS_TAB && (
+            <>
+              <span className="topbar-divider" aria-hidden="true" />
+              <div className="view-toggle" role="group" aria-label="View mode">
+                <button
+                  className={viewMode === 'grid' ? 'active' : ''}
+                  onClick={() => setViewMode('grid')}
+                  title="Grid view"
+                  aria-label="Grid view"
+                  aria-pressed={viewMode === 'grid'}
+                >
+                  <GridIcon size={14} />
+                </button>
+                <button
+                  className={viewMode === 'list' ? 'active' : ''}
+                  onClick={() => setViewMode('list')}
+                  title="List view"
+                  aria-label="List view"
+                  aria-pressed={viewMode === 'list'}
+                >
+                  <ListIcon size={14} />
+                </button>
+              </div>
+            </>
+          )}
           <button
             className={`topbar-tab-btn ${activeTab === SETTINGS_TAB ? 'active' : ''}`}
             onClick={() => setActiveTab(SETTINGS_TAB)}

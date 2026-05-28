@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"structa/internal/config"
 	appdb "structa/internal/db"
 	"structa/internal/indexer"
+	"structa/internal/meta"
 	"structa/internal/paths"
 	"structa/internal/watcher"
 )
@@ -97,6 +97,7 @@ func (a *App) OnCatalogUpdated() {
 type ItemCardDTO struct {
 	ID          int64    `json:"id"`
 	Title       string   `json:"title"`
+	FolderName  string   `json:"folderName"`
 	FolderPath  string   `json:"folderPath"`
 	ThumbURL    string   `json:"thumbUrl"`
 	Favorite    bool     `json:"favorite"`
@@ -171,6 +172,7 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 		card := ItemCardDTO{
 			ID:          r.ID,
 			Title:       r.Title,
+			FolderName:  r.FolderName,
 			FolderPath:  r.FolderPath,
 			Favorite:    r.Favorite,
 			Description: r.Description,
@@ -206,8 +208,7 @@ func (a *App) GetPreviews(id int64) ([]string, error) {
 	return out, nil
 }
 
-// ToggleFavorite flips the favorite flag in the DB and writes/removes the
-// `.favorite` marker file on disk so it survives a fresh index.
+// ToggleFavorite flips the favorite flag in the DB and persists it to structa.yaml.
 func (a *App) ToggleFavorite(id int64) (bool, error) {
 	if a.db == nil {
 		return false, errors.New("db not ready")
@@ -220,13 +221,70 @@ func (a *App) ToggleFavorite(id int64) (bool, error) {
 	if err := appdb.SetFavorite(a.db, id, newFav); err != nil {
 		return false, err
 	}
-	marker := filepath.Join(card.FolderPath, ".favorite")
-	if newFav {
-		_ = os.WriteFile(marker, []byte{}, 0o644)
-	} else {
-		_ = os.Remove(marker)
+	m, hasYAML, _ := meta.Read(card.FolderPath)
+	if !hasYAML {
+		m.Name = card.Title
+		if m.Name == card.FolderName {
+			m.Name = ""
+		}
+		var tags []string
+		_ = json.Unmarshal([]byte(card.TagsJSON), &tags)
+		m.Tags = tags
+		m.Description = card.Description
+		if card.SourceLink.Valid {
+			m.Link = card.SourceLink.String
+		}
 	}
+	m.Favorite = newFav
+	_ = meta.Write(card.FolderPath, m)
 	return newFav, nil
+}
+
+// UpdateItemMeta saves custom metadata (name, tags, description, link, favorite) to structa.yaml.
+func (a *App) UpdateItemMeta(id int64, name string, tags []string, description string, link string, favorite bool) error {
+	if a.db == nil {
+		return errors.New("db not ready")
+	}
+	card, err := appdb.GetCard(a.db, id)
+	if err != nil || card == nil {
+		return fmt.Errorf("card not found: %w", err)
+	}
+	yamlName := name
+	if yamlName == card.FolderName {
+		yamlName = ""
+	}
+	m := meta.ItemMeta{
+		Name:        yamlName,
+		Tags:        tags,
+		Description: description,
+		Link:        link,
+		Favorite:    favorite,
+	}
+	if err := meta.Write(card.FolderPath, m); err != nil {
+		return err
+	}
+	displayTitle := name
+	if displayTitle == "" {
+		displayTitle = card.FolderName
+	}
+	tagsJSON, _ := json.Marshal(tags)
+	sourceLink := sql.NullString{}
+	if link != "" {
+		sourceLink = sql.NullString{String: link, Valid: true}
+	}
+	_ = appdb.UpsertDetails(a.db, appdb.DetailsRow{
+		FolderID:     card.ID,
+		Title:        displayTitle,
+		Favorite:     favorite,
+		SourceLink:   sourceLink,
+		ContentJSON:  card.ContentJSON,
+		ThumbPath:    card.ThumbPath,
+		PreviewPaths: card.PreviewPaths,
+		TagsJSON:     string(tagsJSON),
+		Description:  description,
+	})
+	a.OnCatalogUpdated()
+	return nil
 }
 
 // OpenFolder opens the item's folder in the system file manager.

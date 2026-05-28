@@ -14,6 +14,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 
 	appdb "structa/internal/db"
+	"structa/internal/meta"
 	"structa/internal/paths"
 )
 
@@ -55,63 +56,75 @@ func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folder
 		MTime:       float64(info.ModTime().UnixNano()) / 1e9,
 	}
 
-	// Identify cover candidates by priority, plus all `preview*` files.
-	var coverCandidate string
-	coverPriority := -1
-	var previews []string
+	m, hasYAML, _ := meta.Read(folderPath)
+	if hasYAML {
+		if m.Name != "" {
+			res.Title = m.Name
+		}
+		if len(m.Tags) > 0 {
+			res.Tags = m.Tags
+		}
+		if m.Description != "" {
+			res.Description = m.Description
+		}
+		if m.Link != "" {
+			res.SourceLink = m.Link
+		}
+		res.Favorite = m.Favorite
+	}
+
+	// Collect all images in the folder; the first one alphabetically becomes the cover.
+	var images []string
 
 	for _, e := range entries {
 		name := e.Name()
 		lower := strings.ToLower(name)
 		full := filepath.Join(folderPath, name)
-		switch {
-		case lower == ".favorite":
-			res.Favorite = true
-		case lower == "link.url":
-			if link, err := readURLFile(full); err == nil && link != "" {
-				res.SourceLink = link
-			}
-		case lower == "tags.txt":
-			if tags, err := readTagsFile(full); err == nil {
-				res.Tags = tags
-			}
-		case lower == "description.txt":
-			if desc, err := os.ReadFile(full); err == nil {
-				res.Description = strings.TrimSpace(string(desc))
-			}
-		}
-		if !e.IsDir() && isImageExt(name) && strings.HasPrefix(lower, "preview") {
-			previews = append(previews, name)
-			pr := previewPriority(lower)
-			if pr > coverPriority {
-				coverPriority = pr
-				coverCandidate = name
+		if !hasYAML {
+			switch {
+			case lower == ".favorite":
+				res.Favorite = true
+			case lower == "link.url":
+				if link, err := readURLFile(full); err == nil && link != "" {
+					res.SourceLink = link
+				}
+			case lower == "tags.txt":
+				if tags, err := readTagsFile(full); err == nil {
+					res.Tags = tags
+				}
+			case lower == "description.txt":
+				if desc, err := os.ReadFile(full); err == nil {
+					res.Description = strings.TrimSpace(string(desc))
+				}
 			}
 		}
-		// Content list: subfolder and archive filenames (skip preview images and marker files).
+		if !e.IsDir() && isImageExt(name) {
+			images = append(images, name)
+		}
+		// Content list: subfolder and archive filenames (skip images and marker files).
 		if e.IsDir() {
 			res.Content = append(res.Content, name)
-		} else if !strings.HasPrefix(lower, "preview") && lower != ".favorite" && lower != "link.url" && lower != "tags.txt" && lower != "description.txt" {
+		} else if !isImageExt(name) && lower != ".favorite" && lower != "link.url" && lower != "tags.txt" && lower != "description.txt" && lower != meta.FileName && lower != meta.FileName+".tmp" {
 			res.Content = append(res.Content, name)
 		}
 	}
 
 	sort.Strings(res.Content)
-	sort.Strings(previews)
+	sort.Strings(images)
 
 	// Generate thumbnails. Thumb dir is keyed by hash of folder_path (stable across rename of id).
 	thumbDir := p.ThumbDir(folderPath)
 	// Remove any previous thumbs so renames/removals don't linger.
 	_ = os.RemoveAll(thumbDir)
 
-	if coverCandidate != "" {
-		src := filepath.Join(folderPath, coverCandidate)
+	if len(images) > 0 {
+		src := filepath.Join(folderPath, images[0])
 		dst := filepath.Join(thumbDir, "thumb.jpg")
 		if err := resizeToJPEG(src, dst, 300); err == nil {
 			res.ThumbRel = filepath.ToSlash(filepath.Join(paths.FolderKey(folderPath), "thumb.jpg"))
 		}
 	}
-	for i, name := range previews {
+	for i, name := range images {
 		src := filepath.Join(folderPath, name)
 		dst := filepath.Join(thumbDir, fmt.Sprintf("preview-%d.jpg", i))
 		if err := resizeToJPEG(src, dst, 600); err == nil {
@@ -203,21 +216,6 @@ func readURLFile(path string) (string, error) {
 	return "", sc.Err()
 }
 
-// previewPriority assigns a priority to a filename matching the legacy cover-selection rule:
-// preview1 > preview.a > preview (exact, any extension) > other preview*.
-func previewPriority(lower string) int {
-	base := strings.TrimSuffix(lower, filepath.Ext(lower))
-	switch {
-	case base == "preview1":
-		return 3
-	case base == "preview.a":
-		return 2
-	case base == "preview":
-		return 1
-	default:
-		return 0
-	}
-}
 
 // computeContentHash returns a stable hash over (name, isDir, size, mtime) of a folder's direct children.
 // It is used to decide whether to re-process an item folder. Reading sizes/mtimes from DirEntry avoids extra stats.

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { main } from '../../wailsjs/go/models';
 import { Card, ViewMode } from '../components/Card';
+import { MetadataEditorModal } from '../components/MetadataEditorModal';
 import { Sidebar, FilterState } from '../components/Sidebar';
 import { PreviewModal } from '../components/PreviewModal';
 
@@ -14,6 +15,7 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterState>({ favoritesOnly: false, selectedTags: [] });
   const [preview, setPreview] = useState<main.ItemCardDTO | null>(null);
+  const [editing, setEditing] = useState<main.ItemCardDTO | null>(null);
 
   const tagSet = useMemo(() => new Set(filter.selectedTags), [filter.selectedTags]);
   const hasFilter = filter.favoritesOnly || tagSet.size > 0;
@@ -111,6 +113,7 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
                       onFavoriteChange={onFavoriteChange}
                       onOpenPreview={setPreview}
                       onTagClick={toggleTag}
+                      onEditMeta={setEditing}
                     />
                   ))}
                 </div>
@@ -124,6 +127,13 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
           itemId={preview.id}
           fallbackUrl={preview.thumbUrl}
           onClose={() => setPreview(null)}
+        />
+      )}
+      {editing && (
+        <MetadataEditorModal
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => onFavoriteChange(editing.id, editing.favorite)}
         />
       )}
     </>

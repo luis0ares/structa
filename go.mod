@@ -7,6 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/image v0.41.0
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.50.1
 )
 

@@ -53,3 +53,7 @@ export function SaveConfig(arg1) {
 export function ToggleFavorite(arg1) {
   return window['go']['main']['App']['ToggleFavorite'](arg1);
 }
+
+export function UpdateItemMeta(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['UpdateItemMeta'](arg1, arg2, arg3, arg4, arg5, arg6);
+}

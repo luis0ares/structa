@@ -166,6 +166,12 @@ input[type="text"]:focus, input[type="search"]:focus {
   outline: none;
   background: var(--hover);
 }
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 2px;
+}
 .view-toggle {
   display: inline-flex;
   background: var(--bg-elev-2);
@@ -746,4 +752,126 @@ input[type="text"]:focus, input[type="search"]:focus {
   padding: 2px 8px;
   border-radius: 999px;
   margin-right: 8px;
+}
+
+/* -------- Metadata editor modal -------- */
+.editor-card {
+  background: var(--bg-elev);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  width: 480px;
+  max-width: 92vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.editor-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.editor-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+.editor-input {
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  outline: none;
+  transition: border-color 120ms ease;
+}
+.editor-input:focus {
+  border-color: var(--accent);
+}
+.editor-textarea {
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.45;
+}
+.editor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.editor-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 5px;
+}
+.tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.tag-remove:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.15);
+}
+.editor-tag-add {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.editor-tag-add .editor-input {
+  flex: 1;
+}
+.editor-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.editor-toggle-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.editor-error {
+  color: var(--danger);
+  font-size: 13px;
+  padding: 0 2px;
+}
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.editor-actions button {
+  min-width: 80px;
 }

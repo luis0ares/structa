@@ -1,6 +1,6 @@
 import { main } from '../../wailsjs/go/models';
 import { OpenFolder, OpenURL, ToggleFavorite } from '../../wailsjs/go/main/App';
-import { FolderIcon, GlobeIcon, StarIcon } from './icons';
+import { FolderIcon, GlobeIcon, PencilIcon, StarIcon } from './icons';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -11,9 +11,10 @@ type Props = {
   onFavoriteChange: (id: number, favorite: boolean) => void;
   onOpenPreview: (item: main.ItemCardDTO) => void;
   onTagClick: (tag: string) => void;
+  onEditMeta: (item: main.ItemCardDTO) => void;
 };
 
-export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpenPreview, onTagClick }: Props) {
+export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpenPreview, onTagClick, onEditMeta }: Props) {
   const handleStar = (e: React.MouseEvent) => {
     e.stopPropagation();
     ToggleFavorite(item.id).then((fav) => onFavoriteChange(item.id, fav));
@@ -25,6 +26,10 @@ export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpen
   const handleFolder = (e: React.MouseEvent) => {
     e.stopPropagation();
     OpenFolder(item.id);
+  };
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEditMeta(item);
   };
   const handleImg = () => onOpenPreview(item);
 
@@ -80,6 +85,14 @@ export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpen
             <GlobeIcon />
           </button>
         )}
+        <button
+          className="icon-btn"
+          onClick={handleEdit}
+          aria-label="Edit metadata"
+          title="Edit metadata"
+        >
+          <PencilIcon />
+        </button>
         <div className="spacer" />
         <button
           className="icon-btn"
