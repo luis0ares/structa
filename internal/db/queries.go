@@ -20,6 +20,7 @@ type DetailsRow struct {
 	FolderID     int64
 	Title        string
 	Favorite     bool
+	Hidden       bool
 	SourceLink   sql.NullString
 	ContentJSON  string
 	ThumbPath    sql.NullString
@@ -86,8 +87,8 @@ func UpsertDetails(d *sql.DB, r DetailsRow) error {
 		r.TagsJSON = "[]"
 	}
 	_, err := d.Exec(`
-		INSERT INTO folder_details (folder_id, title, favorite, source_link, content_json, thumb_path, preview_paths, tags_json, description)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO folder_details (folder_id, title, favorite, source_link, content_json, thumb_path, preview_paths, tags_json, description, hidden)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(folder_id) DO UPDATE SET
 			title=excluded.title,
 			favorite=excluded.favorite,
@@ -96,8 +97,9 @@ func UpsertDetails(d *sql.DB, r DetailsRow) error {
 			thumb_path=excluded.thumb_path,
 			preview_paths=excluded.preview_paths,
 			tags_json=excluded.tags_json,
-			description=excluded.description
-	`, r.FolderID, r.Title, boolToInt(r.Favorite), nullableString(r.SourceLink), r.ContentJSON, nullableString(r.ThumbPath), r.PreviewPaths, r.TagsJSON, r.Description)
+			description=excluded.description,
+			hidden=excluded.hidden
+	`, r.FolderID, r.Title, boolToInt(r.Favorite), nullableString(r.SourceLink), r.ContentJSON, nullableString(r.ThumbPath), r.PreviewPaths, r.TagsJSON, r.Description, boolToInt(r.Hidden))
 	return err
 }
 
@@ -139,7 +141,7 @@ func AllFolderPaths(d *sql.DB) ([]string, error) {
 func AllCards(d *sql.DB) ([]CardRow, error) {
 	rows, err := d.Query(`
 		SELECT f.id, f.tab, f.category, f.category_path, f.folder_name, f.folder_path, f.mtime, f.content_hash,
-		       fd.title, fd.favorite, fd.source_link, fd.content_json, fd.thumb_path, fd.preview_paths, fd.tags_json, fd.description
+		       fd.title, fd.favorite, fd.source_link, fd.content_json, fd.thumb_path, fd.preview_paths, fd.tags_json, fd.description, fd.hidden
 		FROM folders f
 		LEFT JOIN folder_details fd ON fd.folder_id = f.id
 		ORDER BY f.tab, f.category, f.folder_name COLLATE NOCASE
@@ -151,10 +153,10 @@ func AllCards(d *sql.DB) ([]CardRow, error) {
 	var out []CardRow
 	for rows.Next() {
 		var c CardRow
-		var fav sql.NullInt64
+		var fav, hidden sql.NullInt64
 		var title, contentJSON, previewPaths, tagsJSON, description sql.NullString
 		if err := rows.Scan(&c.ID, &c.Tab, &c.Category, &c.CategoryPath, &c.FolderName, &c.FolderPath, &c.MTime, &c.ContentHash,
-			&title, &fav, &c.SourceLink, &contentJSON, &c.ThumbPath, &previewPaths, &tagsJSON, &description); err != nil {
+			&title, &fav, &c.SourceLink, &contentJSON, &c.ThumbPath, &previewPaths, &tagsJSON, &description, &hidden); err != nil {
 			return nil, err
 		}
 		c.FolderID = c.ID
@@ -164,6 +166,7 @@ func AllCards(d *sql.DB) ([]CardRow, error) {
 			c.Title = c.FolderName
 		}
 		c.Favorite = fav.Valid && fav.Int64 != 0
+		c.Hidden = hidden.Valid && hidden.Int64 != 0
 		c.ContentJSON = nonEmptyJSON(contentJSON)
 		c.PreviewPaths = nonEmptyJSON(previewPaths)
 		c.TagsJSON = nonEmptyJSON(tagsJSON)
@@ -178,16 +181,16 @@ func AllCards(d *sql.DB) ([]CardRow, error) {
 func GetCard(d *sql.DB, id int64) (*CardRow, error) {
 	row := d.QueryRow(`
 		SELECT f.id, f.tab, f.category, f.category_path, f.folder_name, f.folder_path, f.mtime, f.content_hash,
-		       fd.title, fd.favorite, fd.source_link, fd.content_json, fd.thumb_path, fd.preview_paths, fd.tags_json, fd.description
+		       fd.title, fd.favorite, fd.source_link, fd.content_json, fd.thumb_path, fd.preview_paths, fd.tags_json, fd.description, fd.hidden
 		FROM folders f
 		LEFT JOIN folder_details fd ON fd.folder_id = f.id
 		WHERE f.id = ?
 	`, id)
 	var c CardRow
-	var fav sql.NullInt64
+	var fav, hidden sql.NullInt64
 	var title, contentJSON, previewPaths, tagsJSON, description sql.NullString
 	if err := row.Scan(&c.ID, &c.Tab, &c.Category, &c.CategoryPath, &c.FolderName, &c.FolderPath, &c.MTime, &c.ContentHash,
-		&title, &fav, &c.SourceLink, &contentJSON, &c.ThumbPath, &previewPaths, &tagsJSON, &description); err != nil {
+		&title, &fav, &c.SourceLink, &contentJSON, &c.ThumbPath, &previewPaths, &tagsJSON, &description, &hidden); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -200,6 +203,7 @@ func GetCard(d *sql.DB, id int64) (*CardRow, error) {
 		c.Title = c.FolderName
 	}
 	c.Favorite = fav.Valid && fav.Int64 != 0
+	c.Hidden = hidden.Valid && hidden.Int64 != 0
 	c.ContentJSON = nonEmptyJSON(contentJSON)
 	c.PreviewPaths = nonEmptyJSON(previewPaths)
 	c.TagsJSON = nonEmptyJSON(tagsJSON)

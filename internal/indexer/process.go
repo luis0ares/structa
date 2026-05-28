@@ -22,6 +22,7 @@ import (
 type scanResult struct {
 	Title        string
 	Favorite     bool
+	Hidden       bool
 	SourceLink   string
 	Description  string
 	Tags         []string
@@ -71,6 +72,7 @@ func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folder
 			res.SourceLink = m.Link
 		}
 		res.Favorite = m.Favorite
+		res.Hidden = m.Hidden
 	}
 
 	// Collect all images in the folder; the first one alphabetically becomes the cover.
@@ -155,6 +157,7 @@ func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folder
 		FolderID:     id,
 		Title:        res.Title,
 		Favorite:     res.Favorite,
+		Hidden:       res.Hidden,
 		ContentJSON:  string(contentJSON),
 		PreviewPaths: string(previewJSON),
 		TagsJSON:     string(tagsJSON),

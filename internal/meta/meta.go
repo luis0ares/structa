@@ -16,6 +16,7 @@ type ItemMeta struct {
 	Description string   `yaml:"description,omitempty"`
 	Link        string   `yaml:"link,omitempty"`
 	Favorite    bool     `yaml:"favorite,omitempty"`
+	Hidden      bool     `yaml:"hidden,omitempty"`
 }
 
 func Read(folderPath string) (ItemMeta, bool, error) {

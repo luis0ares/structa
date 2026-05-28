@@ -55,6 +55,10 @@ func Open(path string) (*sql.DB, error) {
 		d.Close()
 		return nil, err
 	}
+	if err := ensureColumn(d, "folder_details", "hidden", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		d.Close()
+		return nil, err
+	}
 	return d, nil
 }
 

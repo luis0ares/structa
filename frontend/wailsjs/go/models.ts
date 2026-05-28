@@ -109,6 +109,7 @@ export namespace main {
 	    folderPath: string;
 	    thumbUrl: string;
 	    favorite: boolean;
+	    hidden: boolean;
 	    sourceLink: string;
 	    description: string;
 	    content: string[];
@@ -126,6 +127,7 @@ export namespace main {
 	        this.folderPath = source["folderPath"];
 	        this.thumbUrl = source["thumbUrl"];
 	        this.favorite = source["favorite"];
+	        this.hidden = source["hidden"];
 	        this.sourceLink = source["sourceLink"];
 	        this.description = source["description"];
 	        this.content = source["content"];

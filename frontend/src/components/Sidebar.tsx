@@ -98,7 +98,7 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
           <div className="sidebar-search-input">
             <input
               type="search"
-              placeholder="Search by name or category"
+              placeholder="Search by name or tags"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               style={{ paddingLeft: 30 }}
@@ -140,11 +140,11 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
             </div>
             <div className="filter-panel-section">
               <div className="filter-panel-label">
-                Categories {tagOptions.length > 0 && `(${tagOptions.length})`}
+                Tags {tagOptions.length > 0 && `(${tagOptions.length})`}
               </div>
               {tagOptions.length === 0 ? (
                 <div className="config-empty" style={{ padding: '6px' }}>
-                  No tags.txt tags found in this tab
+                  No tags found in this tab
                 </div>
               ) : (
                 tagOptions.map((t) => (

@@ -8,10 +8,11 @@ import { PreviewModal } from '../components/PreviewModal';
 type Props = {
   tab: main.TabDTO | null;
   viewMode: ViewMode;
+  showHidden: boolean;
   onFavoriteChange: (id: number, favorite: boolean) => void;
 };
 
-export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
+export function CatalogView({ tab, viewMode, showHidden, onFavoriteChange }: Props) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterState>({ favoritesOnly: false, selectedTags: [] });
   const [preview, setPreview] = useState<main.ItemCardDTO | null>(null);
@@ -19,6 +20,20 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
 
   const tagSet = useMemo(() => new Set(filter.selectedTags), [filter.selectedTags]);
   const hasFilter = filter.favoritesOnly || tagSet.size > 0;
+
+  // When hidden items aren't being shown, strip them from the tab before any other
+  // logic so search, tag filtering, and the sidebar all see the visible subset only.
+  const effectiveTab = useMemo<main.TabDTO | null>(() => {
+    if (!tab) return null;
+    if (showHidden) return tab;
+    return {
+      ...tab,
+      categories: tab.categories.map((c) => ({
+        ...c,
+        items: c.items.filter((m) => !m.hidden),
+      })),
+    } as main.TabDTO;
+  }, [tab, showHidden]);
 
   const jumpTo = (id: number) => {
     const el = document.getElementById(`card-${id}`);
@@ -35,7 +50,7 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
     }));
   };
 
-  if (!tab) {
+  if (!effectiveTab) {
     return (
       <main className="content">
         <div className="empty">
@@ -61,7 +76,7 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
     return true;
   };
 
-  const visible = tab.categories.map((c) => {
+  const visible = effectiveTab.categories.map((c) => {
     const catHit = c.name.toLowerCase().includes(q);
     const items = c.items.filter((m) => {
       if (!passes(m)) return false;
@@ -79,7 +94,7 @@ export function CatalogView({ tab, viewMode, onFavoriteChange }: Props) {
   return (
     <>
       <Sidebar
-        tab={tab}
+        tab={effectiveTab}
         search={search}
         onSearchChange={setSearch}
         filter={filter}

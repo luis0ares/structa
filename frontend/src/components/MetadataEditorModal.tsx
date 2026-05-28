@@ -15,6 +15,7 @@ export function MetadataEditorModal({ item, onClose, onSaved }: Props) {
   const [link, setLink] = useState(item.sourceLink || '');
   const [description, setDescription] = useState(item.description || '');
   const [favorite, setFavorite] = useState(item.favorite);
+  const [hidden, setHidden] = useState(item.hidden);
   const [newTag, setNewTag] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +46,7 @@ export function MetadataEditorModal({ item, onClose, onSaved }: Props) {
     setSaving(true);
     setError('');
     try {
-      await UpdateItemMeta(item.id, name || item.folderName, tags, description, link, favorite);
+      await UpdateItemMeta(item.id, name || item.folderName, tags, description, link, favorite, hidden);
       onSaved();
       onClose();
     } catch (e) {
@@ -128,6 +129,14 @@ export function MetadataEditorModal({ item, onClose, onSaved }: Props) {
               onChange={(e) => setFavorite(e.target.checked)}
             />
             Favorite
+          </label>
+          <label className="editor-toggle-row">
+            <input
+              type="checkbox"
+              checked={hidden}
+              onChange={(e) => setHidden(e.target.checked)}
+            />
+            Hidden
           </label>
         </div>
         {error && <div className="editor-error">{error}</div>}

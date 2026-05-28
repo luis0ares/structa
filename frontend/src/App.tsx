@@ -6,7 +6,7 @@ import { CatalogView } from './views/CatalogView';
 import { ConfigView } from './views/ConfigView';
 import { IndexStatusPill } from './components/IndexStatusPill';
 import { ConfirmProvider } from './components/ConfirmDialog';
-import { GearIcon, GridIcon, ListIcon, RefreshIcon } from './components/icons';
+import { EyeIcon, EyeOffIcon, GearIcon, GridIcon, ListIcon, RefreshIcon } from './components/icons';
 import type { ViewMode } from './components/Card';
 
 const SETTINGS_TAB = '__settings__';
@@ -18,6 +18,7 @@ function App() {
     indexer.Status.createFrom({ scanning: false, currentPath: '', queueDepth: 0 }),
   );
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [showHidden, setShowHidden] = useState(false);
 
   const refresh = useCallback(async () => {
     const data = await GetCatalog();
@@ -112,6 +113,15 @@ function App() {
                   <ListIcon size={14} />
                 </button>
               </div>
+              <button
+                className={`topbar-tab-btn ${showHidden ? 'active' : ''}`}
+                onClick={() => setShowHidden((v) => !v)}
+                title={showHidden ? 'Hiding from view (showing hidden items)' : 'Show hidden items'}
+                aria-label="Toggle hidden items"
+                aria-pressed={showHidden}
+              >
+                {showHidden ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
             </>
           )}
           <button
@@ -129,7 +139,7 @@ function App() {
         {activeTab === SETTINGS_TAB ? (
           <ConfigView onSaved={refresh} />
         ) : (
-          <CatalogView tab={currentTab} viewMode={viewMode} onFavoriteChange={onFavoriteChange} />
+          <CatalogView tab={currentTab} viewMode={viewMode} showHidden={showHidden} onFavoriteChange={onFavoriteChange} />
         )}
       </div>
     </div>

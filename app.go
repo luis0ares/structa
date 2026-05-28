@@ -101,6 +101,7 @@ type ItemCardDTO struct {
 	FolderPath  string   `json:"folderPath"`
 	ThumbURL    string   `json:"thumbUrl"`
 	Favorite    bool     `json:"favorite"`
+	Hidden      bool     `json:"hidden"`
 	SourceLink  string   `json:"sourceLink"`
 	Description string   `json:"description"`
 	Content     []string `json:"content"`
@@ -175,6 +176,7 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 			FolderName:  r.FolderName,
 			FolderPath:  r.FolderPath,
 			Favorite:    r.Favorite,
+			Hidden:      r.Hidden,
 			Description: r.Description,
 			Content:     content,
 			Tags:        tags,
@@ -236,12 +238,13 @@ func (a *App) ToggleFavorite(id int64) (bool, error) {
 		}
 	}
 	m.Favorite = newFav
+	m.Hidden = card.Hidden
 	_ = meta.Write(card.FolderPath, m)
 	return newFav, nil
 }
 
-// UpdateItemMeta saves custom metadata (name, tags, description, link, favorite) to structa.yaml.
-func (a *App) UpdateItemMeta(id int64, name string, tags []string, description string, link string, favorite bool) error {
+// UpdateItemMeta saves custom metadata (name, tags, description, link, favorite, hidden) to structa.yaml.
+func (a *App) UpdateItemMeta(id int64, name string, tags []string, description string, link string, favorite bool, hidden bool) error {
 	if a.db == nil {
 		return errors.New("db not ready")
 	}
@@ -259,6 +262,7 @@ func (a *App) UpdateItemMeta(id int64, name string, tags []string, description s
 		Description: description,
 		Link:        link,
 		Favorite:    favorite,
+		Hidden:      hidden,
 	}
 	if err := meta.Write(card.FolderPath, m); err != nil {
 		return err
@@ -276,6 +280,7 @@ func (a *App) UpdateItemMeta(id int64, name string, tags []string, description s
 		FolderID:     card.ID,
 		Title:        displayTitle,
 		Favorite:     favorite,
+		Hidden:       hidden,
 		SourceLink:   sourceLink,
 		ContentJSON:  card.ContentJSON,
 		ThumbPath:    card.ThumbPath,
