@@ -6,7 +6,7 @@ import { CatalogView } from './views/CatalogView';
 import { ConfigView } from './views/ConfigView';
 import { IndexStatusPill } from './components/IndexStatusPill';
 import { ConfirmProvider } from './components/ConfirmDialog';
-import { EyeIcon, EyeOffIcon, GearIcon, GridIcon, ListIcon, RefreshIcon } from './components/icons';
+import { CheckSquareIcon, EyeIcon, EyeOffIcon, GearIcon, GridIcon, ListIcon, RefreshIcon } from './components/icons';
 import type { ViewMode } from './components/Card';
 
 const SETTINGS_TAB = '__settings__';
@@ -19,6 +19,24 @@ function App() {
   );
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [showHidden, setShowHidden] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+
+  const toggleSelected = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
 
   const refresh = useCallback(async () => {
     const data = await GetCatalog();
@@ -122,6 +140,15 @@ function App() {
               >
                 {showHidden ? <EyeIcon /> : <EyeOffIcon />}
               </button>
+              <button
+                className={`topbar-tab-btn ${selectMode ? 'active' : ''}`}
+                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                title={selectMode ? 'Exit selection mode' : 'Select items in bulk'}
+                aria-label="Toggle selection mode"
+                aria-pressed={selectMode}
+              >
+                <CheckSquareIcon />
+              </button>
             </>
           )}
           <button
@@ -139,7 +166,17 @@ function App() {
         {activeTab === SETTINGS_TAB ? (
           <ConfigView onSaved={refresh} />
         ) : (
-          <CatalogView tab={currentTab} viewMode={viewMode} showHidden={showHidden} onFavoriteChange={onFavoriteChange} />
+          <CatalogView
+            tab={currentTab}
+            viewMode={viewMode}
+            showHidden={showHidden}
+            onFavoriteChange={onFavoriteChange}
+            selectMode={selectMode}
+            selectedIds={selectedIds}
+            onToggleSelected={toggleSelected}
+            onClearSelection={clearSelection}
+            onExitSelectMode={exitSelectMode}
+          />
         )}
       </div>
     </div>

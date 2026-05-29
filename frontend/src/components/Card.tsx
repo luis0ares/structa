@@ -12,9 +12,12 @@ type Props = {
   onOpenPreview: (item: main.ItemCardDTO) => void;
   onTagClick: (tag: string) => void;
   onEditMeta: (item: main.ItemCardDTO) => void;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (id: number) => void;
 };
 
-export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpenPreview, onTagClick, onEditMeta }: Props) {
+export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpenPreview, onTagClick, onEditMeta, selectMode, selected, onToggleSelected }: Props) {
   const handleStar = (e: React.MouseEvent) => {
     e.stopPropagation();
     ToggleFavorite(item.id).then((fav) => onFavoriteChange(item.id, fav));
@@ -31,10 +34,34 @@ export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpen
     e.stopPropagation();
     onEditMeta(item);
   };
-  const handleImg = () => onOpenPreview(item);
+  const handleImg = () => {
+    if (selectMode) {
+      onToggleSelected?.(item.id);
+      return;
+    }
+    onOpenPreview(item);
+  };
+  const handleCheckbox = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleSelected?.(item.id);
+  };
 
   return (
-    <div className={`card ${viewMode === 'list' ? 'card-list' : ''}`} id={`card-${item.id}`}>
+    <div
+      className={`card ${viewMode === 'list' ? 'card-list' : ''} ${selectMode ? 'card-selectable' : ''} ${selected ? 'card-selected' : ''}`}
+      id={`card-${item.id}`}
+    >
+      {selectMode && (
+        <label className="card-select" onClick={handleCheckbox}>
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => onToggleSelected?.(item.id)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={selected ? `Deselect ${item.title}` : `Select ${item.title}`}
+          />
+        </label>
+      )}
       <div className="card-img" onClick={handleImg}>
         {item.thumbUrl ? (
           <img src={item.thumbUrl} alt={item.title} loading="lazy" />

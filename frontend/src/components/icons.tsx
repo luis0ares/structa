@@ -172,6 +172,25 @@ export function ListIcon({ size, ...rest }: Props) {
   );
 }
 
+export function CheckSquareIcon({ size, ...rest }: Props) {
+  return (
+    <svg {...base(size)} {...rest}>
+      <polyline points="9 11 12 14 22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+
+export function ArrowRightCircleIcon({ size, ...rest }: Props) {
+  return (
+    <svg {...base(size)} {...rest}>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 16 16 12 12 8" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </svg>
+  );
+}
+
 export function RefreshIcon({ size, ...rest }: Props) {
   return (
     <svg {...base(size)} {...rest}>

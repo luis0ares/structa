@@ -4,6 +4,8 @@ import {main} from '../models';
 import {config} from '../models';
 import {indexer} from '../models';
 
+export function DeleteItems(arg1:Array<number>):Promise<void>;
+
 export function ForceReindex():Promise<void>;
 
 export function GetCatalog():Promise<Array<main.TabDTO>>;
@@ -13,6 +15,10 @@ export function GetConfig():Promise<config.Config>;
 export function GetPreviews(arg1:number):Promise<Array<string>>;
 
 export function IndexerStatus():Promise<indexer.Status>;
+
+export function ListMoveDestinations():Promise<Array<main.MoveDestDTO>>;
+
+export function MoveItems(arg1:Array<number>,arg2:string):Promise<void>;
 
 export function OnCatalogUpdated():Promise<void>;
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -116,6 +117,15 @@ type CategoryDTO struct {
 type TabDTO struct {
 	Name       string        `json:"name"`
 	Categories []CategoryDTO `json:"categories"`
+}
+
+// MoveDestDTO describes one valid destination for a bulk move — a configured
+// category root path with a friendly label ("Tab / Category").
+type MoveDestDTO struct {
+	Tab      string `json:"tab"`
+	Category string `json:"category"`
+	Path     string `json:"path"`
+	Label    string `json:"label"`
 }
 
 // ----- Bound methods -----
@@ -290,6 +300,139 @@ func (a *App) UpdateItemMeta(id int64, name string, tags []string, description s
 	})
 	a.OnCatalogUpdated()
 	return nil
+}
+
+// ListMoveDestinations returns one entry per configured category root path,
+// so the bulk-move UI can offer them as destinations.
+func (a *App) ListMoveDestinations() ([]MoveDestDTO, error) {
+	if a.indexer == nil {
+		return []MoveDestDTO{}, nil
+	}
+	cfg := a.indexer.Config()
+	out := []MoveDestDTO{}
+	seen := map[string]bool{}
+	for _, t := range cfg.Tabs {
+		for _, c := range t.Categories {
+			for _, p := range c.Folders {
+				clean := filepath.Clean(p)
+				if seen[clean] {
+					continue
+				}
+				seen[clean] = true
+				out = append(out, MoveDestDTO{
+					Tab:      t.Name,
+					Category: c.Name,
+					Path:     clean,
+					Label:    fmt.Sprintf("%s / %s — %s", t.Name, c.Name, clean),
+				})
+			}
+		}
+	}
+	return out, nil
+}
+
+// MoveItems moves each item folder into destDir. destDir must be one of the
+// configured category roots (validated via ListMoveDestinations).
+func (a *App) MoveItems(ids []int64, destDir string) error {
+	if a.db == nil {
+		return errors.New("db not ready")
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	destClean := filepath.Clean(destDir)
+	valid, err := a.ListMoveDestinations()
+	if err != nil {
+		return err
+	}
+	allowed := false
+	for _, d := range valid {
+		if d.Path == destClean {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return fmt.Errorf("destination not in configured category roots: %s", destDir)
+	}
+	if err := os.MkdirAll(destClean, 0o755); err != nil {
+		return err
+	}
+	var firstErr error
+	for _, id := range ids {
+		card, err := appdb.GetCard(a.db, id)
+		if err != nil || card == nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("item %d: not found", id)
+			}
+			continue
+		}
+		src := card.FolderPath
+		if filepath.Clean(filepath.Dir(src)) == destClean {
+			continue
+		}
+		dst := filepath.Join(destClean, card.FolderName)
+		if _, err := os.Stat(dst); err == nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("item %d: destination already exists: %s", id, dst)
+			}
+			continue
+		}
+		if err := os.Rename(src, dst); err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("item %d: %w", id, err)
+			}
+			continue
+		}
+		// Remove the stale DB row keyed by old path; the indexer will re-create
+		// it at the new location on reconcile.
+		_, _ = appdb.DeleteByPath(a.db, src)
+	}
+	if a.indexer != nil {
+		go func() {
+			if err := a.indexer.Reconcile(); err != nil {
+				wailsruntime.LogErrorf(a.ctx, "reconcile after move: %v", err)
+			}
+		}()
+	}
+	a.OnCatalogUpdated()
+	return firstErr
+}
+
+// DeleteItems removes each item folder from disk and purges its DB row.
+func (a *App) DeleteItems(ids []int64) error {
+	if a.db == nil {
+		return errors.New("db not ready")
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var firstErr error
+	for _, id := range ids {
+		card, err := appdb.GetCard(a.db, id)
+		if err != nil || card == nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("item %d: not found", id)
+			}
+			continue
+		}
+		if err := os.RemoveAll(card.FolderPath); err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("item %d: %w", id, err)
+			}
+			continue
+		}
+		_, _ = appdb.DeleteByPath(a.db, card.FolderPath)
+	}
+	if a.indexer != nil {
+		go func() {
+			if err := a.indexer.Reconcile(); err != nil {
+				wailsruntime.LogErrorf(a.ctx, "reconcile after delete: %v", err)
+			}
+		}()
+	}
+	a.OnCatalogUpdated()
+	return firstErr
 }
 
 // OpenFolder opens the item's folder in the system file manager.

@@ -173,6 +173,8 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
           <div className="config-empty">No matches</div>
         )}
         {filtered.map((c) => {
+          if (c.items.length === 0) return null;
+
           const isCollapsed = !!collapsed[c.name];
           return (
             <div key={c.name} className="cat-group">

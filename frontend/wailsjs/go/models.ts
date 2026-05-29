@@ -167,6 +167,24 @@ export namespace main {
 		}
 	}
 	
+	export class MoveDestDTO {
+	    tab: string;
+	    category: string;
+	    path: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MoveDestDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tab = source["tab"];
+	        this.category = source["category"];
+	        this.path = source["path"];
+	        this.label = source["label"];
+	    }
+	}
 	export class TabDTO {
 	    name: string;
 	    categories: CategoryDTO[];

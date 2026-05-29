@@ -875,3 +875,111 @@ input[type="text"]:focus, input[type="search"]:focus {
 .editor-actions button {
   min-width: 80px;
 }
+
+/* ----- Bulk selection ----- */
+.card-select {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(20, 20, 20, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+}
+.card-select input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent, #4f8cff);
+}
+.card.card-selectable { position: relative; }
+.card.card-selectable .card-img { cursor: pointer; }
+.card.card-selected {
+  outline: 2px solid var(--accent, #4f8cff);
+  outline-offset: -2px;
+}
+
+.bulk-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  background: var(--bg-elev, #1f2128);
+  border: 1px solid var(--border, #2c2f37);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+.bulk-bar-count { font-size: 13px; color: var(--fg, #e6e6e6); }
+.bulk-bar-count strong { color: var(--accent, #4f8cff); margin-right: 4px; }
+.bulk-bar-actions { display: flex; gap: 8px; align-items: center; }
+.bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg, #15171c);
+  color: var(--fg, #e6e6e6);
+  border: 1px solid var(--border, #2c2f37);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.bulk-btn:hover:not(:disabled) { background: var(--hover, #262932); }
+.bulk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.bulk-btn.danger { color: #ff6b6b; border-color: #5a2a2a; }
+.bulk-btn.danger:hover:not(:disabled) { background: #2a1818; }
+.bulk-btn.ghost { color: var(--fg-muted, #9aa0a8); }
+
+.bulk-move-wrap { position: relative; }
+.bulk-move-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 280px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-elev, #1f2128);
+  border: 1px solid var(--border, #2c2f37);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+}
+.bulk-move-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--fg, #e6e6e6);
+}
+.bulk-move-item:hover { background: var(--hover, #262932); }
+.bulk-move-item-label { font-size: 12px; font-weight: 600; }
+.bulk-move-item-path {
+  font-size: 11px;
+  color: var(--fg-muted, #9aa0a8);
+  word-break: break-all;
+}
+.bulk-move-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--fg-muted, #9aa0a8);
+}
