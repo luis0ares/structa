@@ -46,7 +46,7 @@ export function Card({ item, viewMode, selectedTagKeys, onFavoriteChange, onOpen
         <div className="card-title">{item.title}</div>
         {item.tags && item.tags.length > 0 && (
           <div className="card-tags">
-            {item.tags.map((t) => {
+            {item.tags.sort().map((t) => {
               const active = selectedTagKeys.has(t.toLowerCase());
               return (
                 <button

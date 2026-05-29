@@ -46,7 +46,7 @@ export function MetadataEditorModal({ item, onClose, onSaved }: Props) {
     setSaving(true);
     setError('');
     try {
-      await UpdateItemMeta(item.id, name || item.folderName, tags, description, link, favorite, hidden);
+      await UpdateItemMeta(item.id, name || item.folderName, tags.sort(), description, link, favorite, hidden);
       onSaved();
       onClose();
     } catch (e) {
@@ -80,7 +80,7 @@ export function MetadataEditorModal({ item, onClose, onSaved }: Props) {
           <div className="editor-label">
             Tags
             <div className="editor-tags">
-              {tags.map((t, i) => (
+              {tags.sort().map((t, i) => (
                 <span key={i} className="tag-chip active editor-tag-chip">
                   {t}
                   <button type="button" className="tag-remove" onClick={() => removeTag(i)} aria-label={`Remove "${t}"`} title={`Remove "${t}"`}>
