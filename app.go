@@ -479,6 +479,7 @@ func (a *App) SaveConfig(cfg config.Config) error {
 }
 
 // PickFolder shows a native directory picker and returns the chosen path.
+// Returns empty string if the user cancels.
 func (a *App) PickFolder() (string, error) {
 	if a.ctx == nil {
 		return "", errors.New("ctx not ready")
@@ -488,6 +489,9 @@ func (a *App) PickFolder() (string, error) {
 	})
 	if err != nil {
 		return "", err
+	}
+	if dir == "" {
+		return "", nil
 	}
 	return filepath.Clean(dir), nil
 }
