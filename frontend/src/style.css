@@ -438,11 +438,23 @@ input[type="search"]:focus {
   margin-bottom: 24px;
 }
 .cat-section-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 10px;
   padding-bottom: 6px;
   font-size: 15px;
   color: var(--fg-muted);
   border-bottom: 1px solid var(--border);
+}
+
+.cat-select-all {
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent, #4f8cff);
+  width: 14px;
+  height: 14px;
 }
 
 .grid {

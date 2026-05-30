@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { main } from '../../wailsjs/go/models';
 import { DeleteItems, ListMoveDestinations, MoveItems } from '../../wailsjs/go/main/App';
 import { Card, ViewMode } from '../components/Card';
@@ -8,6 +8,41 @@ import { PreviewModal } from '../components/PreviewModal';
 import { useConfirm } from '../components/ConfirmDialog';
 import { ArrowRightCircleIcon, CloseIcon, TrashIcon } from '../components/icons';
 
+function CategorySelectCheckbox({
+  items,
+  selectedIds,
+  onSelectGroup,
+}: {
+  items: main.ItemCardDTO[];
+  selectedIds: Set<number>;
+  onSelectGroup: (ids: number[], select: boolean) => void;
+}) {
+  const ids = useMemo(() => items.map((m) => m.id), [items]);
+  const selectedCount = ids.filter((id) => selectedIds.has(id)).length;
+  const allSelected = ids.length > 0 && selectedCount === ids.length;
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  const ref = useCallback(
+    (el: HTMLInputElement | null) => {
+      if (el) el.indeterminate = someSelected;
+    },
+    [someSelected],
+  );
+
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      className="cat-select-all"
+      checked={allSelected}
+      onChange={() => onSelectGroup(ids, !allSelected)}
+      onClick={(e) => e.stopPropagation()}
+      aria-label="Select all in category"
+      title={allSelected ? 'Deselect all' : 'Select all'}
+    />
+  );
+}
+
 type Props = {
   tab: main.TabDTO | null;
   viewMode: ViewMode;
@@ -16,6 +51,7 @@ type Props = {
   selectMode: boolean;
   selectedIds: Set<number>;
   onToggleSelected: (id: number) => void;
+  onSelectGroup: (ids: number[], select: boolean) => void;
   onClearSelection: () => void;
   onExitSelectMode: () => void;
 };
@@ -28,6 +64,7 @@ export function CatalogView({
   selectMode,
   selectedIds,
   onToggleSelected,
+  onSelectGroup,
   onClearSelection,
   onExitSelectMode,
 }: Props) {
@@ -199,7 +236,16 @@ export function CatalogView({
           visible.map((c) =>
             c.items.length === 0 ? null : (
               <section key={c.name} className="cat-section">
-                <h3 className="cat-section-h">{c.name}</h3>
+                <h3 className="cat-section-h">
+                  {selectMode && (
+                    <CategorySelectCheckbox
+                      items={c.items}
+                      selectedIds={selectedIds}
+                      onSelectGroup={onSelectGroup}
+                    />
+                  )}
+                  {c.name}
+                </h3>
                 <div className={`grid ${viewMode === 'list' ? 'list' : ''}`}>
                   {c.items.map((m) => (
                     <Card

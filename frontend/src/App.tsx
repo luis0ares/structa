@@ -33,6 +33,15 @@ function App() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
+  const selectGroup = useCallback((ids: number[], select: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (select) ids.forEach((id) => next.add(id));
+      else ids.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, []);
+
   const exitSelectMode = useCallback(() => {
     setSelectMode(false);
     setSelectedIds(new Set());
@@ -174,6 +183,7 @@ function App() {
             selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelected={toggleSelected}
+            onSelectGroup={selectGroup}
             onClearSelection={clearSelection}
             onExitSelectMode={exitSelectMode}
           />
