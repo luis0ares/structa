@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
-import { main } from '../../wailsjs/go/models';
-import { ChevronIcon, FilterIcon, SearchIcon, StarIcon } from './icons';
+import { useMemo, useRef, useState } from "react";
+import { main } from "../../wailsjs/go/models";
+import { ChevronIcon, FilterIcon, SearchIcon, StarIcon } from "./icons";
 
 export type FilterState = {
   favoritesOnly: boolean;
@@ -16,7 +16,14 @@ type Props = {
   onJumpToItem: (id: number) => void;
 };
 
-export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, onJumpToItem }: Props) {
+export function Sidebar({
+  tab,
+  search,
+  onSearchChange,
+  filter,
+  onFilterChange,
+  onJumpToItem,
+}: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [filterOpen, setFilterOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -41,7 +48,10 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
       .map(([key, v]) => ({ key, label: v.label, n: v.n }));
   }, [tab]);
 
-  const selectedSet = useMemo(() => new Set(filter.selectedTags), [filter.selectedTags]);
+  const selectedSet = useMemo(
+    () => new Set(filter.selectedTags),
+    [filter.selectedTags],
+  );
   const hasFilter = filter.favoritesOnly || filter.selectedTags.length > 0;
 
   const passes = (m: main.ItemCardDTO) => {
@@ -50,7 +60,10 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
       const itemTags = (m.tags || []).map((t) => t.toLowerCase());
       let ok = false;
       for (const t of selectedSet) {
-        if (itemTags.includes(t)) { ok = true; break; }
+        if (itemTags.includes(t)) {
+          ok = true;
+          break;
+        }
       }
       if (!ok) return false;
     }
@@ -105,13 +118,18 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
             />
             <SearchIcon
               size={16}
-              style={{ position: 'absolute', left: 9, top: 9, color: 'var(--fg-muted)' }}
+              style={{
+                position: "absolute",
+                left: 9,
+                top: 9,
+                color: "var(--fg-muted)",
+              }}
             />
           </div>
           <button
             ref={filterButtonRef}
             type="button"
-            className={`filter-btn ${hasFilter ? 'has-filter' : ''}`}
+            className={`filter-btn ${hasFilter ? "has-filter" : ""}`}
             onClick={() => setFilterOpen((v) => !v)}
             title="Filters"
             aria-label="Filters"
@@ -121,51 +139,60 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
           </button>
         </div>
         {filterOpen && (
-          <div className="filter-panel" role="region" aria-label="Filters">
-            <div className="filter-panel-section">
-              <div className="filter-panel-label">Quick</div>
-              <label className="filter-row">
-                <input
-                  type="checkbox"
-                  checked={filter.favoritesOnly}
-                  onChange={(e) =>
-                    onFilterChange({ ...filter, favoritesOnly: e.target.checked })
-                  }
-                />
-                <span className="label">
-                  <StarIcon size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} filled />
-                  Favorites only
-                </span>
-              </label>
-            </div>
-            <div className="filter-panel-section">
-              <div className="filter-panel-label">
-                Tags {tagOptions.length > 0 && `(${tagOptions.length})`}
-              </div>
-              {tagOptions.length === 0 ? (
-                <div className="config-empty" style={{ padding: '6px' }}>
-                  No tags found in this tab
-                </div>
-              ) : (
-                tagOptions.map((t) => (
-                  <label key={t.key} className="filter-row">
-                    <input
-                      type="checkbox"
-                      checked={selectedSet.has(t.key)}
-                      onChange={() => toggleTag(t.key)}
+          <>
+            <div className="filter-panel" role="region" aria-label="Filters">
+              <div className="filter-panel-section">
+                <div className="filter-panel-label">Quick</div>
+                <label className="filter-row">
+                  <input
+                    type="checkbox"
+                    checked={filter.favoritesOnly}
+                    onChange={(e) =>
+                      onFilterChange({
+                        ...filter,
+                        favoritesOnly: e.target.checked,
+                      })
+                    }
+                  />
+                  <span className="label">
+                    <StarIcon
+                      size={12}
+                      style={{ verticalAlign: "-2px", marginRight: 4 }}
+                      filled
                     />
-                    <span className="label">{t.label}</span>
-                    <span className="count">{t.n}</span>
-                  </label>
-                ))
-              )}
+                    Favorites only
+                  </span>
+                </label>
+              </div>
+              <div className="filter-panel-section">
+                <div className="filter-panel-label">
+                  Tags {tagOptions.length > 0 && `(${tagOptions.length})`}
+                </div>
+                {tagOptions.length === 0 ? (
+                  <div className="config-empty" style={{ padding: "6px" }}>
+                    No tags found in this tab
+                  </div>
+                ) : (
+                  tagOptions.map((t) => (
+                    <label key={t.key} className="filter-row">
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(t.key)}
+                        onChange={() => toggleTag(t.key)}
+                      />
+                      <span className="label">{t.label}</span>
+                      <span className="count">{t.n}</span>
+                    </label>
+                  ))
+                )}
+              </div>
             </div>
             {hasFilter && (
               <div className="filter-panel-footer">
                 <button onClick={clearFilters}>Clear filters</button>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
       <div className="sidebar-tree">
@@ -179,12 +206,18 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
           return (
             <div key={c.name} className="cat-group">
               <div
-                className={`cat-header ${isCollapsed ? 'collapsed' : ''}`}
+                className={`cat-header ${isCollapsed ? "collapsed" : ""}`}
                 onClick={() => toggle(c.name)}
               >
                 <ChevronIcon className="chev" size={14} />
                 <span>{c.name}</span>
-                <span style={{ marginLeft: 'auto', color: 'var(--fg-muted)', fontWeight: 400 }}>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    color: "var(--fg-muted)",
+                    fontWeight: 400,
+                  }}
+                >
                   {c.items.length}
                 </span>
               </div>
@@ -193,7 +226,7 @@ export function Sidebar({ tab, search, onSearchChange, filter, onFilterChange, o
                   {c.items.map((m) => (
                     <div
                       key={m.id}
-                      className={`cat-item ${m.favorite ? 'favorite' : ''}`}
+                      className={`cat-item ${m.favorite ? "favorite" : ""}`}
                       title={m.title}
                       onClick={() => onJumpToItem(m.id)}
                     >
