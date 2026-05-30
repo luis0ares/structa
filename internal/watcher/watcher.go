@@ -88,6 +88,9 @@ func (w *Watcher) SetRoots(roots []string) {
 			if !e.IsDir() {
 				continue
 			}
+			if e.Name() == ".structa" {
+				continue
+			}
 			itemPath := filepath.Join(d, e.Name())
 			if err := w.w.Add(itemPath); err != nil {
 				log.Printf("watcher: add item %s: %v", itemPath, err)
