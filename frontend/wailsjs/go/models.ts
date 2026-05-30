@@ -47,6 +47,7 @@ export namespace config {
 		}
 	}
 	export class Config {
+	    profile_name?: string;
 	    tabs: Tab[];
 	
 	    static createFrom(source: any = {}) {
@@ -55,6 +56,7 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profile_name = source["profile_name"];
 	        this.tabs = this.convertValues(source["tabs"], Tab);
 	    }
 	
@@ -183,6 +185,20 @@ export namespace main {
 	        this.category = source["category"];
 	        this.path = source["path"];
 	        this.label = source["label"];
+	    }
+	}
+	export class ProfileDTO {
+	    name: string;
+	    data_dir: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProfileDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.data_dir = source["data_dir"];
 	    }
 	}
 	export class TabDTO {

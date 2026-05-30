@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -18,65 +19,54 @@ import (
 	"structa/internal/indexer"
 	"structa/internal/meta"
 	"structa/internal/paths"
+	"structa/internal/profiles"
 	"structa/internal/watcher"
 )
 
 // App is the Wails application. Exported methods become callable from the React frontend.
 type App struct {
 	ctx     context.Context
-	paths   paths.Paths
-	db      *sql.DB
-	indexer *indexer.Indexer
-	watcher *watcher.Watcher
+	metaDir string // %AppData%/structa — where profiles.json lives
+
+	// Active profile state — swapped atomically when switching profiles.
+	profMu     sync.RWMutex
+	paths      paths.Paths
+	profCancel context.CancelFunc
+	db         *sql.DB
+	indexer    *indexer.Indexer
+	watcher    *watcher.Watcher
 }
 
 func NewApp() *App {
 	return &App{}
 }
 
-// startup runs once when the Wails window is created.
+// ThumbsDir returns the thumbnail directory for the active profile.
+// Called from the HTTP asset handler in main.go (different goroutine).
+func (a *App) ThumbsDir() string {
+	a.profMu.RLock()
+	defer a.profMu.RUnlock()
+	return a.paths.ThumbsDir
+}
+
+// startup runs once when the Wails window is ready.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	p, err := paths.Resolve()
+	metaDir, err := paths.AppMetaDir()
 	if err != nil {
-		wailsruntime.LogErrorf(ctx, "paths: %v", err)
+		wailsruntime.LogErrorf(ctx, "appMetaDir: %v", err)
 		return
 	}
-	a.paths = p
+	a.metaDir = metaDir
 
-	d, err := appdb.Open(p.DBFile)
-	if err != nil {
-		wailsruntime.LogErrorf(ctx, "db open: %v", err)
-		return
-	}
-	a.db = d
-
-	cfg, err := config.Load(p.ConfigFile)
-	if err != nil {
-		wailsruntime.LogErrorf(ctx, "config load: %v", err)
-		cfg = config.Config{Tabs: []config.Tab{}}
-	}
-
-	a.indexer = indexer.New(d, p, a)
-	a.indexer.SetConfig(cfg)
-	a.indexer.Start(ctx)
-
-	w, err := watcher.New(a.indexer)
-	if err != nil {
-		wailsruntime.LogErrorf(ctx, "watcher: %v", err)
-	} else {
-		a.watcher = w
-		a.watcher.SetRoots(a.indexer.CategoryPaths())
-		go a.watcher.Run(ctx)
-	}
-
-	// Initial reconcile on a goroutine so the window opens immediately.
-	go func() {
-		if err := a.indexer.Reconcile(); err != nil {
-			wailsruntime.LogErrorf(ctx, "reconcile: %v", err)
+	// Auto-activate the last-used profile so the frontend can skip the picker.
+	reg, _ := profiles.Load(metaDir)
+	if reg.Active != "" {
+		if err := a.activateProfile(reg.Active, reg); err != nil {
+			wailsruntime.LogErrorf(ctx, "auto-activate profile %q: %v", reg.Active, err)
 		}
-	}()
+	}
 }
 
 // OnStatus implements indexer.Notifier — pushes status to the frontend.
@@ -91,6 +81,239 @@ func (a *App) OnCatalogUpdated() {
 	if a.ctx != nil {
 		wailsruntime.EventsEmit(a.ctx, "catalog:updated")
 	}
+}
+
+// ----- Profile DTOs -----
+
+type ProfileDTO struct {
+	Name    string `json:"name"`
+	DataDir string `json:"data_dir"`
+}
+
+// ----- Profile management (bound to frontend) -----
+
+func (a *App) GetProfiles() ([]ProfileDTO, error) {
+	reg, err := profiles.Load(a.metaDir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ProfileDTO, len(reg.Profiles))
+	for i, p := range reg.Profiles {
+		out[i] = ProfileDTO{Name: p.Name, DataDir: p.DataDir}
+	}
+	return out, nil
+}
+
+func (a *App) GetActiveProfile() (string, error) {
+	reg, err := profiles.Load(a.metaDir)
+	if err != nil {
+		return "", err
+	}
+	return reg.Active, nil
+}
+
+// DetectProfile inspects a directory chosen by the user and returns a best-guess
+// ProfileDTO. If the directory is (or contains) a .structa folder whose
+// config.json has a saved profile_name, that name is used; otherwise the
+// directory's base name is used as the profile name.
+func (a *App) DetectProfile(dataDir string) (ProfileDTO, error) {
+	dataDir = filepath.Clean(dataDir)
+	var configPath string
+	if filepath.Base(dataDir) == ".structa" {
+		configPath = filepath.Join(dataDir, "config.json")
+	} else {
+		configPath = filepath.Join(dataDir, ".structa", "config.json")
+	}
+	cfg, _ := config.Load(configPath)
+	name := cfg.ProfileName
+	if name == "" {
+		base := filepath.Base(dataDir)
+		if base == ".structa" {
+			base = filepath.Base(filepath.Dir(dataDir))
+		}
+		name = base
+	}
+	return ProfileDTO{Name: name, DataDir: dataDir}, nil
+}
+
+// CreateProfile registers a new named profile. dataDir is the folder chosen by
+// the user; a .structa/ subdirectory will be created inside it on first use
+// (unless dataDir is already a .structa folder, in which case it is used directly).
+func (a *App) CreateProfile(name string, dataDir string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("profile name cannot be empty")
+	}
+	if dataDir == "" {
+		return errors.New("data directory cannot be empty")
+	}
+	reg, err := profiles.Load(a.metaDir)
+	if err != nil {
+		return err
+	}
+	for _, p := range reg.Profiles {
+		if p.Name == name {
+			return fmt.Errorf("a profile named %q already exists", name)
+		}
+	}
+	reg.Profiles = append(reg.Profiles, profiles.Profile{Name: name, DataDir: dataDir})
+	if err := profiles.Save(a.metaDir, reg); err != nil {
+		return err
+	}
+	// Persist the profile name into config.json so future imports can auto-detect it.
+	if pp, err := paths.ResolveProfile(dataDir); err == nil {
+		cfg, _ := config.Load(pp.ConfigFile)
+		if cfg.ProfileName == "" {
+			cfg.ProfileName = name
+			_ = config.Save(pp.ConfigFile, cfg)
+		}
+	}
+	return nil
+}
+
+// SelectProfile activates an existing profile: initialises its DB, indexer,
+// and watcher, persists it as the active profile, then emits "profile:ready".
+func (a *App) SelectProfile(name string) error {
+	reg, err := profiles.Load(a.metaDir)
+	if err != nil {
+		return err
+	}
+	if err := a.activateProfile(name, reg); err != nil {
+		return err
+	}
+	reg.Active = name
+	if err := profiles.Save(a.metaDir, reg); err != nil {
+		wailsruntime.LogErrorf(a.ctx, "save profiles: %v", err)
+	}
+	wailsruntime.EventsEmit(a.ctx, "profile:ready", name)
+	return nil
+}
+
+// DeleteProfile removes a profile from the registry. Its data folder is NOT deleted.
+func (a *App) DeleteProfile(name string) error {
+	reg, err := profiles.Load(a.metaDir)
+	if err != nil {
+		return err
+	}
+	filtered := reg.Profiles[:0]
+	for _, p := range reg.Profiles {
+		if p.Name != name {
+			filtered = append(filtered, p)
+		}
+	}
+	reg.Profiles = filtered
+	if reg.Active == name {
+		reg.Active = ""
+	}
+	return profiles.Save(a.metaDir, reg)
+}
+
+// UpdateProfile renames an existing profile and/or changes its data directory.
+func (a *App) UpdateProfile(oldName, newName, newDataDir string) error {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return errors.New("name cannot be empty")
+	}
+	reg, err := profiles.Load(a.metaDir)
+	if err != nil {
+		return err
+	}
+	found := false
+	for i, p := range reg.Profiles {
+		if p.Name == newName && newName != oldName {
+			_ = p
+			return fmt.Errorf("a profile named %q already exists", newName)
+		}
+		if p.Name == oldName {
+			reg.Profiles[i].Name = newName
+			if newDataDir != "" {
+				reg.Profiles[i].DataDir = newDataDir
+			}
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf("profile %q not found", oldName)
+	}
+	if reg.Active == oldName {
+		reg.Active = newName
+	}
+	return profiles.Save(a.metaDir, reg)
+}
+
+// activateProfile initialises all subsystems for the named profile.
+// Caller does not need to hold any lock.
+func (a *App) activateProfile(name string, reg profiles.Registry) error {
+	var found *profiles.Profile
+	for i := range reg.Profiles {
+		if reg.Profiles[i].Name == name {
+			found = &reg.Profiles[i]
+			break
+		}
+	}
+	if found == nil {
+		return fmt.Errorf("profile %q not found", name)
+	}
+
+	pp, err := paths.ResolveProfile(found.DataDir)
+	if err != nil {
+		return fmt.Errorf("resolve paths: %w", err)
+	}
+
+	d, err := appdb.Open(pp.DBFile)
+	if err != nil {
+		return fmt.Errorf("open db: %w", err)
+	}
+
+	cfg, err := config.Load(pp.ConfigFile)
+	if err != nil {
+		cfg = config.Config{Tabs: []config.Tab{}}
+	}
+
+	profCtx, cancel := context.WithCancel(a.ctx)
+
+	ix := indexer.New(d, pp, a)
+	ix.SetConfig(cfg)
+	ix.Start(profCtx)
+
+	w, werr := watcher.New(ix)
+
+	// Swap in new profile atomically.
+	a.profMu.Lock()
+	a.teardownLocked()
+	a.paths = pp
+	a.db = d
+	a.profCancel = cancel
+	a.indexer = ix
+	if werr == nil {
+		a.watcher = w
+		w.SetRoots(ix.CategoryPaths())
+		go w.Run(profCtx)
+	}
+	a.profMu.Unlock()
+
+	go func() {
+		if err := ix.Reconcile(); err != nil {
+			wailsruntime.LogErrorf(a.ctx, "reconcile: %v", err)
+		}
+	}()
+
+	return nil
+}
+
+// teardownLocked stops the current profile's subsystems. Must be called with profMu held.
+func (a *App) teardownLocked() {
+	if a.profCancel != nil {
+		a.profCancel()
+		a.profCancel = nil
+	}
+	if a.db != nil {
+		_ = a.db.Close()
+		a.db = nil
+	}
+	a.indexer = nil
+	a.watcher = nil
+	a.paths = paths.Paths{}
 }
 
 // ----- DTOs returned to the frontend -----
@@ -119,8 +342,7 @@ type TabDTO struct {
 	Categories []CategoryDTO `json:"categories"`
 }
 
-// MoveDestDTO describes one valid destination for a bulk move — a configured
-// category root path with a friendly label ("Tab / Category").
+// MoveDestDTO describes one valid destination for a bulk move.
 type MoveDestDTO struct {
 	Tab      string `json:"tab"`
 	Category string `json:"category"`
@@ -143,7 +365,6 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 	catIdx := map[string]int{}
 	out := []TabDTO{}
 
-	// Seed tab order from current config so empty categories still render.
 	cfg := a.indexer.Config()
 	for _, t := range cfg.Tabs {
 		tabIdx[t.Name] = len(out)
@@ -302,8 +523,7 @@ func (a *App) UpdateItemMeta(id int64, name string, tags []string, description s
 	return nil
 }
 
-// ListMoveDestinations returns one entry per configured category root path,
-// so the bulk-move UI can offer them as destinations.
+// ListMoveDestinations returns one entry per configured category root path.
 func (a *App) ListMoveDestinations() ([]MoveDestDTO, error) {
 	if a.indexer == nil {
 		return []MoveDestDTO{}, nil
@@ -331,8 +551,7 @@ func (a *App) ListMoveDestinations() ([]MoveDestDTO, error) {
 	return out, nil
 }
 
-// MoveItems moves each item folder into destDir. destDir must be one of the
-// configured category roots (validated via ListMoveDestinations).
+// MoveItems moves each item folder into destDir.
 func (a *App) MoveItems(ids []int64, destDir string) error {
 	if a.db == nil {
 		return errors.New("db not ready")
@@ -384,8 +603,6 @@ func (a *App) MoveItems(ids []int64, destDir string) error {
 			}
 			continue
 		}
-		// Remove the stale DB row keyed by old path; the indexer will re-create
-		// it at the new location on reconcile.
 		_, _ = appdb.DeleteByPath(a.db, src)
 	}
 	if a.indexer != nil {
@@ -458,11 +675,17 @@ func (a *App) OpenURL(url string) error {
 
 // GetConfig returns the current configuration.
 func (a *App) GetConfig() (config.Config, error) {
+	if a.paths.ConfigFile == "" {
+		return config.Config{Tabs: []config.Tab{}}, nil
+	}
 	return config.Load(a.paths.ConfigFile)
 }
 
 // SaveConfig persists the configuration, refreshes the watcher and reconciles.
 func (a *App) SaveConfig(cfg config.Config) error {
+	if a.paths.ConfigFile == "" {
+		return errors.New("no active profile")
+	}
 	if err := config.Save(a.paths.ConfigFile, cfg); err != nil {
 		return err
 	}
@@ -479,7 +702,6 @@ func (a *App) SaveConfig(cfg config.Config) error {
 }
 
 // PickFolder shows a native directory picker and returns the chosen path.
-// Returns empty string if the user cancels.
 func (a *App) PickFolder() (string, error) {
 	if a.ctx == nil {
 		return "", errors.New("ctx not ready")
@@ -504,7 +726,7 @@ func (a *App) IndexerStatus() indexer.Status {
 	return a.indexer.Status()
 }
 
-// RescanAll forces a full reconcile (useful when a user wants to retrigger after debugging).
+// RescanAll forces a full reconcile.
 func (a *App) RescanAll() error {
 	if a.indexer == nil {
 		return errors.New("indexer not ready")
@@ -512,9 +734,7 @@ func (a *App) RescanAll() error {
 	return a.indexer.Reconcile()
 }
 
-// ForceReindex reprocesses every folder regardless of content-hash. Use when
-// per-item file conventions have changed (e.g. renaming tags.txt) or when the
-// index appears stale.
+// ForceReindex reprocesses every folder regardless of content-hash.
 func (a *App) ForceReindex() error {
 	if a.indexer == nil {
 		return errors.New("indexer not ready")
@@ -522,7 +742,6 @@ func (a *App) ForceReindex() error {
 	return a.indexer.ForceReconcile()
 }
 
-// helper used only for log lines; keeps the build dependency-free.
 func describe(err error) string {
 	if err == nil {
 		return ""

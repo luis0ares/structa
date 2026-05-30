@@ -211,10 +211,11 @@ func (ix *Indexer) reconcile(force bool) error {
 					if !e.IsDir() {
 						continue
 					}
-					if strings.Contains(strings.ToLower(e.Name()), ".ignore") {
+					name := e.Name()
+					if name == ".structa" || strings.Contains(strings.ToLower(name), ".ignore") {
 						continue
 					}
-					fp := filepath.Join(cp, e.Name())
+					fp := filepath.Join(cp, name)
 					desired[fp] = want{tab.Name, cat.Name, cp, fp}
 				}
 			}

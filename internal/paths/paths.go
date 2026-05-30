@@ -7,7 +7,11 @@ import (
 	"path/filepath"
 )
 
-const appDirName = "structa"
+const (
+	appDirName = "structa"
+	// DotStructa is the hidden subfolder created inside each profile's data directory.
+	DotStructa = ".structa"
+)
 
 type Paths struct {
 	Root       string
@@ -16,12 +20,30 @@ type Paths struct {
 	ThumbsDir  string
 }
 
-func Resolve() (Paths, error) {
+// AppMetaDir returns the directory that holds profiles.json.
+// Always %AppData%/structa — independent of which profile is active.
+func AppMetaDir() (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
-		return Paths{}, err
+		return "", err
 	}
-	root := filepath.Join(base, appDirName)
+	dir := filepath.Join(base, appDirName)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// ResolveProfile returns paths for a profile's data directory.
+// If dataDir already ends with ".structa" it is used directly as the root;
+// otherwise a ".structa" subdirectory is created inside it.
+func ResolveProfile(dataDir string) (Paths, error) {
+	var root string
+	if filepath.Base(filepath.Clean(dataDir)) == DotStructa {
+		root = filepath.Clean(dataDir)
+	} else {
+		root = filepath.Join(dataDir, DotStructa)
+	}
 	p := Paths{
 		Root:       root,
 		ConfigFile: filepath.Join(root, "config.json"),

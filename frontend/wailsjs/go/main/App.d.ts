@@ -4,15 +4,25 @@ import {main} from '../models';
 import {config} from '../models';
 import {indexer} from '../models';
 
+export function CreateProfile(arg1:string,arg2:string):Promise<void>;
+
 export function DeleteItems(arg1:Array<number>):Promise<void>;
 
+export function DeleteProfile(arg1:string):Promise<void>;
+
+export function DetectProfile(arg1:string):Promise<main.ProfileDTO>;
+
 export function ForceReindex():Promise<void>;
+
+export function GetActiveProfile():Promise<string>;
 
 export function GetCatalog():Promise<Array<main.TabDTO>>;
 
 export function GetConfig():Promise<config.Config>;
 
 export function GetPreviews(arg1:number):Promise<Array<string>>;
+
+export function GetProfiles():Promise<Array<main.ProfileDTO>>;
 
 export function IndexerStatus():Promise<indexer.Status>;
 
@@ -34,6 +44,12 @@ export function RescanAll():Promise<void>;
 
 export function SaveConfig(arg1:config.Config):Promise<void>;
 
+export function SelectProfile(arg1:string):Promise<void>;
+
+export function ThumbsDir():Promise<string>;
+
 export function ToggleFavorite(arg1:number):Promise<boolean>;
 
 export function UpdateItemMeta(arg1:number,arg2:string,arg3:Array<string>,arg4:string,arg5:string,arg6:boolean,arg7:boolean):Promise<void>;
+
+export function UpdateProfile(arg1:string,arg2:string,arg3:string):Promise<void>;

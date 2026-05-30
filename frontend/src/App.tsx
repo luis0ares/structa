@@ -4,14 +4,25 @@ import { ForceReindex, GetCatalog, IndexerStatus } from '../wailsjs/go/main/App'
 import { indexer, main } from '../wailsjs/go/models';
 import { CatalogView } from './views/CatalogView';
 import { ConfigView } from './views/ConfigView';
+import { ProfileView } from './views/ProfileView';
 import { IndexStatusPill } from './components/IndexStatusPill';
 import { ConfirmProvider } from './components/ConfirmDialog';
-import { CheckSquareIcon, EyeIcon, EyeOffIcon, GearIcon, GridIcon, ListIcon, RefreshIcon } from './components/icons';
+import {
+  CheckSquareIcon,
+  EyeIcon,
+  EyeOffIcon,
+  GearIcon,
+  GridIcon,
+  ListIcon,
+  RefreshIcon,
+  UserIcon,
+} from './components/icons';
 import type { ViewMode } from './components/Card';
 
 const SETTINGS_TAB = '__settings__';
 
 function App() {
+  const [appView, setAppView] = useState<'profile' | 'catalog'>('profile');
   const [catalog, setCatalog] = useState<main.TabDTO[]>([]);
   const [activeTab, setActiveTab] = useState<string>('');
   const [status, setStatus] = useState<indexer.Status>(
@@ -50,19 +61,31 @@ function App() {
   const refresh = useCallback(async () => {
     const data = await GetCatalog();
     setCatalog(data);
-    if (data.length > 0 && (activeTab === '' || activeTab === SETTINGS_TAB && false)) {
-      // Only auto-select on first load
+    if (data.length > 0) {
       setActiveTab((prev) => prev || data[0].name);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
+    if (appView !== 'catalog') return;
     refresh();
     IndexerStatus().then((s) => setStatus(s));
     const off1 = EventsOn('catalog:updated', () => refresh());
     const off2 = EventsOn('indexer:status', (s: any) => setStatus(indexer.Status.createFrom(s)));
     return () => { off1(); off2(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appView, refresh]);
+
+  const handleProfileSelected = useCallback(() => {
+    // Reset catalog state before switching in — avoids showing stale data from a prior profile.
+    setCatalog([]);
+    setActiveTab('');
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setAppView('catalog');
+  }, []);
+
+  const switchToProfiles = useCallback(() => {
+    setAppView('profile');
   }, []);
 
   const currentTab =
@@ -85,6 +108,14 @@ function App() {
       ),
     );
   };
+
+  if (appView === 'profile') {
+    return (
+      <ConfirmProvider>
+        <ProfileView onSelected={handleProfileSelected} />
+      </ConfirmProvider>
+    );
+  }
 
   return (
     <ConfirmProvider>
@@ -160,6 +191,15 @@ function App() {
               </button>
             </>
           )}
+          <span className="topbar-divider" aria-hidden="true" />
+          <button
+            className="topbar-tab-btn"
+            onClick={switchToProfiles}
+            title="Switch profile"
+            aria-label="Switch profile"
+          >
+            <UserIcon />
+          </button>
           <button
             className={`topbar-tab-btn ${activeTab === SETTINGS_TAB ? 'active' : ''}`}
             onClick={() => setActiveTab(SETTINGS_TAB)}

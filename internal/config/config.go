@@ -19,7 +19,8 @@ type Category struct {
 }
 
 type Config struct {
-	Tabs []Tab `json:"tabs"`
+	ProfileName string `json:"profile_name,omitempty"`
+	Tabs        []Tab  `json:"tabs"`
 }
 
 func Load(path string) (Config, error) {
