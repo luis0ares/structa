@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -211,11 +210,10 @@ func (ix *Indexer) reconcile(force bool) error {
 					if !e.IsDir() {
 						continue
 					}
-					name := e.Name()
-					if name == ".structa" || strings.Contains(strings.ToLower(name), ".ignore") {
+					if e.Name() == ".structa" {
 						continue
 					}
-					fp := filepath.Join(cp, name)
+					fp := filepath.Join(cp, e.Name())
 					desired[fp] = want{tab.Name, cat.Name, cp, fp}
 				}
 			}
