@@ -1219,6 +1219,7 @@ input[type="search"]:focus {
   align-items: center;
   gap: 12px;
   transition: border-color 0.15s;
+  flex-wrap: wrap;
 }
 
 .profile-row.profile-row-active {
@@ -1329,12 +1330,10 @@ input[type="search"]:focus {
 .profile-create-card,
 .profile-inline-form {
   background: var(--bg, #1b1b1e);
-  border: 1px solid var(--border, #333);
-  border-radius: 8px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 }
 
 .profile-create-label {
