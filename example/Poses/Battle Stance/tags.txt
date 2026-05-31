@@ -1,3 +1,0 @@
-combat
-dynamic
-aggressive
