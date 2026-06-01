@@ -2,16 +2,6 @@ name: Build and Release Windows Binary
 
 on:
   workflow_dispatch:
-    inputs:
-      version_bump:
-        description: 'Version bump type'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
 
 env:
   GO_VERSION: '1.25.0'
@@ -29,44 +19,175 @@ jobs:
         with:
           fetch-depth: 0 # Full history for git tag detection
 
-      # Determine the next version
-      - name: Determine next version
-        id: version
+      # Validate CHANGELOG.md format before anything else builds. Any
+      # deviation from the "# tag X.Y.Z - Title" contract fails the run
+      # so a malformed changelog never produces a release.
+      - name: Validate CHANGELOG.md format
         shell: pwsh
         run: |
-          # Get the latest tag, default to v0.1.0 if none exists
-          $latestTag = git describe --tags --abbrev=0 2>$null
-          if ($null -eq $latestTag) {
-            $latestTag = "v0.1.0"
+          if (-not (Test-Path "CHANGELOG.md")) {
+            Write-Error "CHANGELOG.md not found at repo root"
+            exit 1
           }
 
-          # Remove 'v' prefix for version parsing
-          $currentVersion = $latestTag -replace '^v', ''
-          $versionParts = $currentVersion -split '\.'
+          $lines = Get-Content "CHANGELOG.md"
+          $errors = @()
 
-          $major = [int]$versionParts[0]
-          $minor = [int]$versionParts[1]
-          $patch = [int]$versionParts[2]
+          # Strict heading pattern: "# tag X.Y.Z - Title" (single space after #,
+          # lowercase "tag", semver triplet, " - " separator, non-empty title).
+          $headingPattern = '^#\s+tag\s+(\d+\.\d+\.\d+)\s*-\s*(.+?)\s*$'
 
-          # Bump version based on input
-          switch ('${{ github.event.inputs.version_bump }}') {
-            'major' {
-              $major++
-              $minor = 0
-              $patch = 0
+          # Reject any heading that looks "tag-like" but doesn't match strictly,
+          # e.g. "## tag 1.0.0 ...", "# Tag 1.0.0 ...", "# tag v1.0.0 ...",
+          # "# tag 1.0 - ...", "# tag 1.0.0 -" (empty title).
+          $looseHeadingPattern = '^#{1,6}\s*[Tt]ag\b'
+
+          $headings = @()
+          for ($i = 0; $i -lt $lines.Length; $i++) {
+            $line = $lines[$i]
+            $lineNo = $i + 1
+
+            if ($line -match $headingPattern) {
+              $headings += [pscustomobject]@{
+                LineNo  = $lineNo
+                Version = $Matches[1]
+                Title   = $Matches[2]
+              }
             }
-            'minor' {
-              $minor++
-              $patch = 0
-            }
-            'patch' {
-              $patch++
+            elseif ($line -match $looseHeadingPattern) {
+              $errors += "Line ${lineNo}: heading does not match required pattern '# tag X.Y.Z - Title' -> '$line'"
             }
           }
 
-          $nextVersion = "v$major.$minor.$patch"
-          echo "version=$nextVersion" >> $env:GITHUB_OUTPUT
-          Write-Host "Current: $latestTag -> Next: $nextVersion"
+          # Must have at least one section.
+          if ($headings.Count -eq 0) {
+            $errors += "CHANGELOG.md contains no '# tag X.Y.Z - Title' heading"
+          }
+
+          # The first non-blank line must be the top heading, otherwise the
+          # parser would treat preamble as part of an earlier release body.
+          $firstNonBlank = $lines | Where-Object { $_.Trim() -ne '' } | Select-Object -First 1
+          if ($firstNonBlank -and ($firstNonBlank -notmatch $headingPattern)) {
+            $errors += "First non-blank line must be a '# tag X.Y.Z - Title' heading, got: '$firstNonBlank'"
+          }
+
+          # Versions must be unique across sections.
+          $dupes = $headings | Group-Object Version | Where-Object { $_.Count -gt 1 }
+          foreach ($g in $dupes) {
+            $errors += "Version $($g.Name) appears in multiple headings (lines: $((($g.Group | ForEach-Object { $_.LineNo }) -join ', ')))"
+          }
+
+          # Every section must have non-empty body content between its heading
+          # and the next heading (or EOF).
+          for ($h = 0; $h -lt $headings.Count; $h++) {
+            $start = $headings[$h].LineNo  # 1-based; body starts at next line
+            if ($h + 1 -lt $headings.Count) {
+              $end = $headings[$h + 1].LineNo - 1
+            } else {
+              $end = $lines.Length
+            }
+            $bodySlice = @()
+            if ($end -ge ($start + 1)) {
+              $bodySlice = $lines[$start..($end - 1)]
+            }
+            $bodyHasContent = ($bodySlice | Where-Object { $_.Trim() -ne '' -and $_.Trim() -ne '---' }).Count -gt 0
+            if (-not $bodyHasContent) {
+              $errors += "Section '$($headings[$h].Version) - $($headings[$h].Title)' (line $($headings[$h].LineNo)) has no body content"
+            }
+          }
+
+          if ($errors.Count -gt 0) {
+            Write-Host "::group::CHANGELOG.md validation errors"
+            foreach ($e in $errors) { Write-Host "::error file=CHANGELOG.md::$e" }
+            Write-Host "::endgroup::"
+            Write-Error "CHANGELOG.md failed format validation ($($errors.Count) error(s))."
+            exit 1
+          }
+
+          Write-Host "✓ CHANGELOG.md format OK ($($headings.Count) section(s))"
+
+      # Parse CHANGELOG.md: the first "# tag X.Y.Z - Title" heading is the
+      # version to release; the body until the next "# tag" heading becomes
+      # the release notes.
+      - name: Parse CHANGELOG.md
+        id: changelog
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "CHANGELOG.md")) {
+            Write-Error "CHANGELOG.md not found at repo root"
+            exit 1
+          }
+
+          $lines = Get-Content "CHANGELOG.md"
+
+          # Find every "# tag X.Y.Z - Title" heading and its line index.
+          $headingIdx = @()
+          for ($i = 0; $i -lt $lines.Length; $i++) {
+            if ($lines[$i] -match '^#\s+tag\s+(\d+\.\d+\.\d+)\s*-\s*(.+?)\s*$') {
+              $headingIdx += [pscustomobject]@{
+                Index   = $i
+                Version = $Matches[1]
+                Title   = $Matches[2]
+              }
+            }
+          }
+
+          if ($headingIdx.Count -eq 0) {
+            Write-Error "No '# tag X.Y.Z - Title' heading found in CHANGELOG.md"
+            exit 1
+          }
+
+          $first = $headingIdx[0]
+          $version = "v" + $first.Version
+          $title   = $first.Title
+
+          # Body = lines after the first heading up to the next heading (or EOF).
+          $bodyStart = $first.Index + 1
+          if ($headingIdx.Count -ge 2) {
+            $bodyEnd = $headingIdx[1].Index - 1
+          } else {
+            $bodyEnd = $lines.Length - 1
+          }
+          $bodyLines = $lines[$bodyStart..$bodyEnd]
+
+          # Trim leading/trailing blank lines and a trailing "---" separator
+          # that sits between sections.
+          while ($bodyLines.Count -gt 0 -and $bodyLines[0].Trim() -eq '') {
+            $bodyLines = $bodyLines[1..($bodyLines.Count - 1)]
+          }
+          while ($bodyLines.Count -gt 0 -and ($bodyLines[-1].Trim() -eq '' -or $bodyLines[-1].Trim() -eq '---')) {
+            $bodyLines = $bodyLines[0..($bodyLines.Count - 2)]
+          }
+          $body = $bodyLines -join "`n"
+
+          # Previous tag = latest tag in git, used for the "Full Changelog" footer.
+          $previousTag = git describe --tags --abbrev=0 2>$null
+          if (-not $previousTag) {
+            $previousTag = ""
+          }
+
+          # Refuse to re-release the same version.
+          if ($previousTag -eq $version) {
+            Write-Error "CHANGELOG.md top entry is $version but a tag with that name already exists. Bump the changelog before releasing."
+            exit 1
+          }
+
+          # Append the "Full Changelog" interval line below the changelog body.
+          if ($previousTag) {
+            $compareUrl = "${{ github.server_url }}/${{ github.repository }}/compare/$previousTag...$version"
+            $body = $body + "`n`n**Full Changelog**: $compareUrl"
+          }
+
+          # Emit outputs (multiline body uses the heredoc form).
+          $delim = "EOF_" + [Guid]::NewGuid().ToString("N")
+          "version=$version"        | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "title=$title"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "previous_tag=$previousTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "body<<$delim"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $body                     | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $delim                    | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          Write-Host "Releasing $version - $title (previous: $previousTag)"
 
       # Setup Go environment
       - name: Setup Go
@@ -114,15 +235,16 @@ jobs:
       - name: Rename Windows executable
         shell: pwsh
         run: |
-          Copy-Item "build\bin\structa.exe" "build\bin\structa-${{ steps.version.outputs.version }}.exe"
+          Copy-Item "build\bin\structa.exe" "build\bin\structa-${{ steps.changelog.outputs.version }}.exe"
 
       # Create the GitHub Release and upload the executable.
-      # GitHub automatically generates source code archives (zip/tar.gz).
+      # Release notes come from CHANGELOG.md; the "Full Changelog" footer is
+      # appended in the parse step above.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          generate_release_notes: true
+          tag_name: ${{ steps.changelog.outputs.version }}
+          name: ${{ steps.changelog.outputs.version }} - ${{ steps.changelog.outputs.title }}
+          body: ${{ steps.changelog.outputs.body }}
           files: |
-            build/bin/structa-${{ steps.version.outputs.version }}.exe
+            build/bin/structa-${{ steps.changelog.outputs.version }}.exe
