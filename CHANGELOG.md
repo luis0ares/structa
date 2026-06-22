@@ -1,3 +1,13 @@
+# tag 1.1.0 - Catalog Sorting
+
+Items can now be ordered however you like. A global sort control in the topbar reorders every category at once — by name (A→Z / Z→A), folder creation date, or last modification — and the same order is applied to both the catalog grid and the sidebar tree so the two always line up. Folder creation/modification times are now tracked in the index to power the date sorts.
+
+### Features
+- **Global sort control** — a topbar dropdown (next to the view toggle) sorts every category by name (A→Z / Z→A), created date, or modified date. The chosen order applies to the catalog grid and the sidebar simultaneously, so an item's position matches in both.
+- **Folder timestamp tracking** — the index now records each folder's creation time (real birth time on Windows) alongside its modification time, exposed to the UI for date-based sorting. Existing libraries are backfilled automatically on the next scan.
+
+---
+
 # tag 1.0.0 - Metadata, Profiles & Bulk Actions
 
 The first big quality-of-life release. Per-item metadata is consolidated into a single `structa.yaml` and editable from inside the app. Libraries become portable thanks to multi-profile support — each profile is a folder with a self-contained `.structa/` sidecar, so you can swap, copy, sync, or back up an entire library at the filesystem level. Bulk-select mode and a hidden-item flag round out the day-to-day workflow.
