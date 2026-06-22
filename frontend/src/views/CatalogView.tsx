@@ -7,6 +7,7 @@ import { Sidebar, FilterState } from '../components/Sidebar';
 import { PreviewModal } from '../components/PreviewModal';
 import { useConfirm } from '../components/ConfirmDialog';
 import { ArrowRightCircleIcon, CloseIcon, TrashIcon } from '../components/icons';
+import { SortMode, sortItems } from '../sort';
 
 function CategorySelectCheckbox({
   items,
@@ -46,6 +47,7 @@ function CategorySelectCheckbox({
 type Props = {
   tab: main.TabDTO | null;
   viewMode: ViewMode;
+  sort: SortMode;
   showHidden: boolean;
   onFavoriteChange: (id: number, favorite: boolean) => void;
   selectMode: boolean;
@@ -59,6 +61,7 @@ type Props = {
 export function CatalogView({
   tab,
   viewMode,
+  sort,
   showHidden,
   onFavoriteChange,
   selectMode,
@@ -197,7 +200,7 @@ export function CatalogView({
 
   const visible = effectiveTab.categories.map((c) => {
     const catHit = c.name.toLowerCase().includes(q);
-    const items = c.items.filter((m) => {
+    const filtered = c.items.filter((m) => {
       if (!passes(m)) return false;
       if (!q) return true;
       return (
@@ -206,6 +209,7 @@ export function CatalogView({
         (m.tags || []).some((t) => t.toLowerCase().includes(q))
       );
     });
+    const items = sortItems(filtered, sort);
     return { ...c, items };
   });
   const hasAny = visible.some((c) => c.items.length > 0);
@@ -219,6 +223,7 @@ export function CatalogView({
         filter={filter}
         onFilterChange={setFilter}
         onJumpToItem={jumpTo}
+        sort={sort}
       />
       <main className="content">
         {!hasAny ? (

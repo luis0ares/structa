@@ -240,6 +240,27 @@ input[type="search"]:focus {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
+/* Global sort control in the topbar. */
+.topbar-sort {
+  height: 28px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--fg);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 6px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.topbar-sort:hover {
+  border-color: var(--accent);
+}
+.topbar-sort:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* -------- Body (sidebar + content) -------- */
 .body {
   display: grid;

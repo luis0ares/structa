@@ -243,6 +243,13 @@ func (ix *Indexer) reconcile(force bool) error {
 				}
 			}
 		}
+		// Backfill ctime for rows indexed before the column existed, without a
+		// full reprocess (cheap stat + targeted update).
+		if !needsWork && existing != nil && existing.CTime == 0 {
+			if info, err := os.Stat(fp); err == nil {
+				_ = appdb.UpdateTimes(ix.db, fp, float64(info.ModTime().UnixNano())/1e9, creationTime(info))
+			}
+		}
 		if needsWork {
 			ix.jobs <- job{w.tab, w.category, w.categoryPath, w.folderPath}
 		}
@@ -327,4 +334,6 @@ func (ix *Indexer) CategoryFor(categoryPath string) (string, string, string) {
 }
 
 // String is for debug logging.
-func (s Status) String() string { return fmt.Sprintf("scanning=%v queue=%d path=%s", s.Scanning, s.QueueDepth, s.CurrentPath) }
+func (s Status) String() string {
+	return fmt.Sprintf("scanning=%v queue=%d path=%s", s.Scanning, s.QueueDepth, s.CurrentPath)
+}

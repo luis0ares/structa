@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS folders (
   folder_name     TEXT NOT NULL,
   folder_path     TEXT NOT NULL UNIQUE,
   mtime           REAL NOT NULL,
+  ctime           REAL NOT NULL DEFAULT 0,
   content_hash    TEXT NOT NULL,
   indexed_at      INTEGER NOT NULL
 );
@@ -56,6 +57,10 @@ func Open(path string) (*sql.DB, error) {
 		return nil, err
 	}
 	if err := ensureColumn(d, "folder_details", "hidden", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		d.Close()
+		return nil, err
+	}
+	if err := ensureColumn(d, "folders", "ctime", "REAL NOT NULL DEFAULT 0"); err != nil {
 		d.Close()
 		return nil, err
 	}

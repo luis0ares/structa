@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { main } from "../../wailsjs/go/models";
+import { SortMode, sortItems } from "../sort";
 import { ChevronIcon, FilterIcon, SearchIcon, StarIcon } from "./icons";
 
 export type FilterState = {
@@ -14,6 +15,7 @@ type Props = {
   filter: FilterState;
   onFilterChange: (f: FilterState) => void;
   onJumpToItem: (id: number) => void;
+  sort: SortMode;
 };
 
 export function Sidebar({
@@ -23,6 +25,7 @@ export function Sidebar({
   filter,
   onFilterChange,
   onJumpToItem,
+  sort,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [filterOpen, setFilterOpen] = useState(false);
@@ -85,11 +88,11 @@ export function Sidebar({
             (m.tags || []).some((t) => t.toLowerCase().includes(q))
           );
         });
-        return { ...c, items };
+        return { ...c, items: sortItems(items, sort) };
       })
       .filter((c) => (q || hasFilter ? c.items.length > 0 : true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, search, filter.favoritesOnly, filter.selectedTags]);
+  }, [tab, search, filter.favoritesOnly, filter.selectedTags, sort]);
 
   const toggle = (name: string) =>
     setCollapsed((s) => ({ ...s, [name]: !s[name] }));

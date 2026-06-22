@@ -13,6 +13,7 @@ type FolderRow struct {
 	FolderName   string
 	FolderPath   string
 	MTime        float64
+	CTime        float64
 	ContentHash  string
 }
 
@@ -36,10 +37,10 @@ type CardRow struct {
 
 // GetByPath returns the folder row for a given folder_path, or nil if not present.
 func GetByPath(d *sql.DB, folderPath string) (*FolderRow, error) {
-	row := d.QueryRow(`SELECT id, tab, category, category_path, folder_name, folder_path, mtime, content_hash
+	row := d.QueryRow(`SELECT id, tab, category, category_path, folder_name, folder_path, mtime, ctime, content_hash
 	                   FROM folders WHERE folder_path = ?`, folderPath)
 	var f FolderRow
-	err := row.Scan(&f.ID, &f.Tab, &f.Category, &f.CategoryPath, &f.FolderName, &f.FolderPath, &f.MTime, &f.ContentHash)
+	err := row.Scan(&f.ID, &f.Tab, &f.Category, &f.CategoryPath, &f.FolderName, &f.FolderPath, &f.MTime, &f.CTime, &f.ContentHash)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -53,17 +54,18 @@ func GetByPath(d *sql.DB, folderPath string) (*FolderRow, error) {
 func Upsert(d *sql.DB, f FolderRow) (int64, error) {
 	now := time.Now().Unix()
 	res, err := d.Exec(`
-		INSERT INTO folders (tab, category, category_path, folder_name, folder_path, mtime, content_hash, indexed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO folders (tab, category, category_path, folder_name, folder_path, mtime, ctime, content_hash, indexed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(folder_path) DO UPDATE SET
 			tab=excluded.tab,
 			category=excluded.category,
 			category_path=excluded.category_path,
 			folder_name=excluded.folder_name,
 			mtime=excluded.mtime,
+			ctime=excluded.ctime,
 			content_hash=excluded.content_hash,
 			indexed_at=excluded.indexed_at
-	`, f.Tab, f.Category, f.CategoryPath, f.FolderName, f.FolderPath, f.MTime, f.ContentHash, now)
+	`, f.Tab, f.Category, f.CategoryPath, f.FolderName, f.FolderPath, f.MTime, f.CTime, f.ContentHash, now)
 	if err != nil {
 		return 0, err
 	}
@@ -80,6 +82,14 @@ func Upsert(d *sql.DB, f FolderRow) (int64, error) {
 		return 0, err
 	}
 	return id, nil
+}
+
+// UpdateTimes refreshes only the mtime/ctime of an existing folder row without
+// reprocessing it. Used to cheaply backfill ctime for rows indexed before the
+// column existed.
+func UpdateTimes(d *sql.DB, folderPath string, mtime, ctime float64) error {
+	_, err := d.Exec(`UPDATE folders SET mtime = ?, ctime = ? WHERE folder_path = ?`, mtime, ctime, folderPath)
+	return err
 }
 
 func UpsertDetails(d *sql.DB, r DetailsRow) error {
@@ -140,7 +150,7 @@ func AllFolderPaths(d *sql.DB) ([]string, error) {
 // AllCards returns one joined row per known folder, ordered by tab → category → folder_name.
 func AllCards(d *sql.DB) ([]CardRow, error) {
 	rows, err := d.Query(`
-		SELECT f.id, f.tab, f.category, f.category_path, f.folder_name, f.folder_path, f.mtime, f.content_hash,
+		SELECT f.id, f.tab, f.category, f.category_path, f.folder_name, f.folder_path, f.mtime, f.ctime, f.content_hash,
 		       fd.title, fd.favorite, fd.source_link, fd.content_json, fd.thumb_path, fd.preview_paths, fd.tags_json, fd.description, fd.hidden
 		FROM folders f
 		LEFT JOIN folder_details fd ON fd.folder_id = f.id
@@ -155,7 +165,7 @@ func AllCards(d *sql.DB) ([]CardRow, error) {
 		var c CardRow
 		var fav, hidden sql.NullInt64
 		var title, contentJSON, previewPaths, tagsJSON, description sql.NullString
-		if err := rows.Scan(&c.ID, &c.Tab, &c.Category, &c.CategoryPath, &c.FolderName, &c.FolderPath, &c.MTime, &c.ContentHash,
+		if err := rows.Scan(&c.ID, &c.Tab, &c.Category, &c.CategoryPath, &c.FolderName, &c.FolderPath, &c.MTime, &c.CTime, &c.ContentHash,
 			&title, &fav, &c.SourceLink, &contentJSON, &c.ThumbPath, &previewPaths, &tagsJSON, &description, &hidden); err != nil {
 			return nil, err
 		}
@@ -180,7 +190,7 @@ func AllCards(d *sql.DB) ([]CardRow, error) {
 
 func GetCard(d *sql.DB, id int64) (*CardRow, error) {
 	row := d.QueryRow(`
-		SELECT f.id, f.tab, f.category, f.category_path, f.folder_name, f.folder_path, f.mtime, f.content_hash,
+		SELECT f.id, f.tab, f.category, f.category_path, f.folder_name, f.folder_path, f.mtime, f.ctime, f.content_hash,
 		       fd.title, fd.favorite, fd.source_link, fd.content_json, fd.thumb_path, fd.preview_paths, fd.tags_json, fd.description, fd.hidden
 		FROM folders f
 		LEFT JOIN folder_details fd ON fd.folder_id = f.id
@@ -189,7 +199,7 @@ func GetCard(d *sql.DB, id int64) (*CardRow, error) {
 	var c CardRow
 	var fav, hidden sql.NullInt64
 	var title, contentJSON, previewPaths, tagsJSON, description sql.NullString
-	if err := row.Scan(&c.ID, &c.Tab, &c.Category, &c.CategoryPath, &c.FolderName, &c.FolderPath, &c.MTime, &c.ContentHash,
+	if err := row.Scan(&c.ID, &c.Tab, &c.Category, &c.CategoryPath, &c.FolderName, &c.FolderPath, &c.MTime, &c.CTime, &c.ContentHash,
 		&title, &fav, &c.SourceLink, &contentJSON, &c.ThumbPath, &previewPaths, &tagsJSON, &description, &hidden); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

@@ -20,17 +20,18 @@ import (
 
 // scanResult holds everything extracted from a single item folder.
 type scanResult struct {
-	Title        string
-	Favorite     bool
-	Hidden       bool
-	SourceLink   string
-	Description  string
-	Tags         []string
-	Content      []string
-	ThumbRel     string
-	PreviewRels  []string
-	MTime        float64
-	ContentHash  string
+	Title       string
+	Favorite    bool
+	Hidden      bool
+	SourceLink  string
+	Description string
+	Tags        []string
+	Content     []string
+	ThumbRel    string
+	PreviewRels []string
+	MTime       float64
+	CTime       float64
+	ContentHash string
 }
 
 // processFolder reads disk state for one item folder, regenerates thumbnails,
@@ -55,6 +56,7 @@ func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folder
 		Content:     []string{},
 		PreviewRels: []string{},
 		MTime:       float64(info.ModTime().UnixNano()) / 1e9,
+		CTime:       creationTime(info),
 	}
 
 	m, hasYAML, _ := meta.Read(folderPath)
@@ -147,6 +149,7 @@ func processFolder(d *sql.DB, p paths.Paths, tab, category, categoryPath, folder
 		FolderName:   filepath.Base(folderPath),
 		FolderPath:   folderPath,
 		MTime:        res.MTime,
+		CTime:        res.CTime,
 		ContentHash:  res.ContentHash,
 	})
 	if err != nil {
@@ -218,7 +221,6 @@ func readURLFile(path string) (string, error) {
 	}
 	return "", sc.Err()
 }
-
 
 // computeContentHash returns a stable hash over (name, isDir, size, mtime) of a folder's direct children.
 // It is used to decide whether to re-process an item folder. Reading sizes/mtimes from DirEntry avoids extra stats.

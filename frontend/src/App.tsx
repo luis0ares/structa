@@ -18,6 +18,7 @@ import {
   UserIcon,
 } from './components/icons';
 import type { ViewMode } from './components/Card';
+import { DEFAULT_SORT, SORT_OPTIONS, SortMode } from './sort';
 
 const SETTINGS_TAB = '__settings__';
 
@@ -29,6 +30,7 @@ function App() {
     indexer.Status.createFrom({ scanning: false, currentPath: '', queueDepth: 0 }),
   );
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sort, setSort] = useState<SortMode>(DEFAULT_SORT);
   const [showHidden, setShowHidden] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
@@ -171,6 +173,19 @@ function App() {
                   <ListIcon size={14} />
                 </button>
               </div>
+              <select
+                className="topbar-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortMode)}
+                title="Sort items"
+                aria-label="Sort items"
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
               <button
                 className={`topbar-tab-btn ${showHidden ? 'active' : ''}`}
                 onClick={() => setShowHidden((v) => !v)}
@@ -218,6 +233,7 @@ function App() {
           <CatalogView
             tab={currentTab}
             viewMode={viewMode}
+            sort={sort}
             showHidden={showHidden}
             onFavoriteChange={onFavoriteChange}
             selectMode={selectMode}

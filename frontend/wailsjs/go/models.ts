@@ -116,6 +116,8 @@ export namespace main {
 	    description: string;
 	    content: string[];
 	    tags: string[];
+	    mtime: number;
+	    ctime: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ItemCardDTO(source);
@@ -134,6 +136,8 @@ export namespace main {
 	        this.description = source["description"];
 	        this.content = source["content"];
 	        this.tags = source["tags"];
+	        this.mtime = source["mtime"];
+	        this.ctime = source["ctime"];
 	    }
 	}
 	export class CategoryDTO {

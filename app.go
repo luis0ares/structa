@@ -330,6 +330,8 @@ type ItemCardDTO struct {
 	Description string   `json:"description"`
 	Content     []string `json:"content"`
 	Tags        []string `json:"tags"`
+	MTime       float64  `json:"mtime"`
+	CTime       float64  `json:"ctime"`
 }
 
 type CategoryDTO struct {
@@ -411,6 +413,8 @@ func (a *App) GetCatalog() ([]TabDTO, error) {
 			Description: r.Description,
 			Content:     content,
 			Tags:        tags,
+			MTime:       r.MTime,
+			CTime:       r.CTime,
 		}
 		if r.ThumbPath.Valid && r.ThumbPath.String != "" {
 			card.ThumbURL = "/thumbs/" + r.ThumbPath.String
