@@ -26,13 +26,13 @@ dev:
 	$(WAILS) dev
 
 build:
-	$(WAILS) build
+	$(WAILS) build -platform windows/amd64
 
 build-clean:
-	$(WAILS) build -clean
+	$(WAILS) build -platform windows/amd64 -clean
 
 build-installer:
-	$(WAILS) build -nsis
+	$(WAILS) build -platform windows/amd64 -nsis
 
 run: $(BIN)
 	"$(BIN)"
